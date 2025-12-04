@@ -2,7 +2,7 @@ import { Redis } from '@upstash/redis';
 
 // Initialize Redis client
 const redis = new Redis({
-  url: process.env.expense_REDIS_URL || process.env.expense_KV_REST_API_URL,
+  url: process.env.expense_KV_REST_API_URL || process.env.expense_KV_URL,
   token: process.env.expense_KV_REST_API_TOKEN,
 });
 
