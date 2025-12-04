@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
+  PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { 
   LayoutDashboard, 
@@ -12,7 +13,9 @@ import {
   ArrowRightLeft,
   DollarSign,
   Wallet,
-  CheckCircle
+  CheckCircle,
+  TrendingUp,
+  Calendar
 } from 'lucide-react';
 import { transactionsAPI, friendsAPI } from './utils/api';
 
@@ -129,10 +132,32 @@ export default function App() {
         data[t.category] = (data[t.category] || 0) + myShare;
       }
     });
-    return Object.keys(data).map(key => ({ name: key, value: Math.round(data[key]) }));
+    return Object.keys(data).map(key => ({ name: key, value: Math.round(data[key]) }))
+      .sort((a, b) => b.value - a.value);
   }, [transactions]);
 
-  const chartColors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#3b82f6'];
+  const timelineData = useMemo(() => {
+    const data = {};
+    transactions.forEach(t => {
+      if (t.splitAmong.includes('Me')) {
+        const myShare = t.amount / t.splitAmong.length;
+        data[t.date] = (data[t.date] || 0) + myShare;
+      }
+    });
+    return Object.keys(data)
+      .sort()
+      .slice(-30) // Last 30 days
+      .map(date => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        amount: Math.round(data[date])
+      }));
+  }, [transactions]);
+
+  const topCategoriesData = useMemo(() => {
+    return categoryData.slice(0, 5);
+  }, [categoryData]);
+
+  const chartColors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#3b82f6', '#ef4444', '#06b6d4', '#f97316', '#84cc16'];
 
   // --- Views ---
 
@@ -190,6 +215,7 @@ export default function App() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pie Chart - Spending by Category */}
         <Card className="p-6 h-96 flex flex-col">
           <h3 className="text-lg font-bold text-slate-800 mb-6">Spending by Category</h3>
           {categoryData.length > 0 ? (
@@ -204,19 +230,100 @@ export default function App() {
                     outerRadius={100}
                     paddingAngle={5}
                     dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
                   >
                     {categoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                     ))}
                   </Pie>
-                  <RechartsTooltip />
-                  <Legend verticalAlign="bottom" height={36}/>
+                  <RechartsTooltip formatter={(value) => `₹${value}`} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
               No expenses recorded yet
+            </div>
+          )}
+        </Card>
+
+        {/* Line Chart - Spending Trend */}
+        <Card className="p-6 h-96 flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Spending Trend</h3>
+            <TrendingUp size={20} className="text-indigo-600" />
+          </div>
+          {timelineData.length > 0 ? (
+            <div className="flex-1 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={timelineData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 12 }}
+                    stroke="#64748b"
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12 }}
+                    stroke="#64748b"
+                  />
+                  <RechartsTooltip 
+                    formatter={(value) => [`₹${value}`, 'Spent']}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="amount" 
+                    stroke="#6366f1" 
+                    strokeWidth={3}
+                    dot={{ fill: '#6366f1', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+              No timeline data yet
+            </div>
+          )}
+        </Card>
+
+        {/* Bar Chart - Top Categories */}
+        <Card className="p-6 h-96 flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Top 5 Categories</h3>
+            <Calendar size={20} className="text-emerald-600" />
+          </div>
+          {topCategoriesData.length > 0 ? (
+            <div className="flex-1 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topCategoriesData} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{ fontSize: 12 }} stroke="#64748b" />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    tick={{ fontSize: 12 }}
+                    stroke="#64748b"
+                    width={100}
+                  />
+                  <RechartsTooltip 
+                    formatter={(value) => [`₹${value}`, 'Total']}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    fill="#10b981"
+                    radius={[0, 8, 8, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+              No category data yet
             </div>
           )}
         </Card>
