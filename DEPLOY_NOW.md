@@ -15,10 +15,10 @@
    git add .
    git commit -m "Configure Supabase database"
    git push origin main
-   
+
    ```
 
-3. **Wait for deployment** (~1-2 minutes)
+3. **Wait for deployment** (~1-2 minutes). 
    - Vercel will automatically deploy
    - Check the Deployments tab in Vercel dashboard
 
