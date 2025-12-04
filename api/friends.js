@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -14,6 +14,8 @@ export default async function handler(req, res) {
   const { userId = 'default_user' } = req.query;
 
   try {
+    const sql = neon(process.env.POSTGRES_URL);
+    
     // Initialize table if it doesn't exist
     await sql`
       CREATE TABLE IF NOT EXISTS friends (
