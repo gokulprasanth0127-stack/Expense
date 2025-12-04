@@ -17,7 +17,7 @@ import {
   TrendingUp,
   Calendar
 } from 'lucide-react';
-import { transactionsAPI, friendsAPI } from './utils/api';
+import { transactionsAPI, friendsAPI, salaryAPI } from './utils/api';
 
 // --- Shared UI Components ---
 
@@ -60,24 +60,27 @@ export default function App() {
   // --- State Management ---
   const [friends, setFriends] = useState([]);
   const [categories] = useState([
-    'Rent', 'EMI', 'Wifi', 'Recharge', 'Groceries', 'Snacks', 'Gym', 'Help',
+    'Salary', 'Rent', 'EMI', 'Wifi', 'Recharge', 'Groceries', 'Snacks', 'Gym', 'Help',
     'Public Transport', 'Fuel', 'Vehicle Maintenance', 'Tea/Coffee', 'Dinner',
     'Lunch', 'Breakfast', 'Clothing', 'Movies', 'Sports', 'Medicine', 'Eggs',
     'HouseHold Things', 'Split', 'Cash ATM', 'Invest', 'Settle'
   ]);
   const [transactions, setTransactions] = useState([]);
+  const [salary, setSalary] = useState({ amount: 0, receivedDate: null });
 
   // Load data from backend on mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [friendsData, transactionsData] = await Promise.all([
+        const [friendsData, transactionsData, salaryData] = await Promise.all([
           friendsAPI.getAll(),
-          transactionsAPI.getAll()
+          transactionsAPI.getAll(),
+          salaryAPI.get()
         ]);
         setFriends(friendsData.length > 0 ? friendsData : ['Rahul', 'Amit', 'Sneha']);
         setTransactions(transactionsData);
+        setSalary(salaryData);
       } catch (error) {
         console.error('Failed to load data:', error);
         // Fallback to localStorage if API fails
@@ -95,16 +98,27 @@ export default function App() {
   // --- Core Calculation Logic ---
   const summary = useMemo(() => {
     let totalSpentByMe = 0; 
-    let totalPaidOut = 0;   
+    let totalPaidOut = 0;
+    let totalIncome = 0;
     const balances = {};
     friends.forEach(f => balances[f] = 0);
 
     transactions.forEach(t => {
       const splitCount = t.splitAmong.length;
-      const amountPerPerson = t.amount / splitCount;
+      const isIncome = t.amount > 0; // Positive = income, Negative = expense
+      const amountPerPerson = Math.abs(t.amount) / splitCount;
 
-      if (t.paidBy === 'Me') totalPaidOut += t.amount;
-      if (t.splitAmong.includes('Me')) totalSpentByMe += amountPerPerson;
+      if (isIncome) {
+        // Income transaction
+        if (t.splitAmong.includes('Me')) totalIncome += amountPerPerson;
+      } else {
+        // Expense transaction
+        if (t.paidBy === 'Me') totalPaidOut += Math.abs(t.amount);
+        if (t.splitAmong.includes('Me')) totalSpentByMe += amountPerPerson;
+      }
+
+      // Skip balance calculation for income
+      if (isIncome) return;
 
       // Settlement Logic
       t.splitAmong.forEach(person => {
@@ -121,8 +135,11 @@ export default function App() {
       });
     });
 
-    return { totalSpentByMe, totalPaidOut, balances };
-  }, [transactions, friends]);
+    // Calculate balance after salary and expenses
+    const netBalance = salary.amount + totalIncome - totalSpentByMe;
+
+    return { totalSpentByMe, totalPaidOut, totalIncome, balances, netBalance };
+  }, [transactions, friends, salary]);
 
   const categoryData = useMemo(() => {
     const data = {};
@@ -164,34 +181,50 @@ export default function App() {
   const Dashboard = () => (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6 bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-none shadow-lg shadow-indigo-200">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-none shadow-lg shadow-emerald-200">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-indigo-100 text-sm font-medium mb-1">My Total Expense</p>
-              <h3 className="text-3xl font-bold">₹{summary.totalSpentByMe.toFixed(2)}</h3>
+              <p className="text-emerald-100 text-sm font-medium mb-1">Current Balance</p>
+              <h3 className="text-3xl font-bold">₹{summary.netBalance.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg">
               <Wallet size={24} className="text-white" />
             </div>
           </div>
-          <div className="mt-4 text-xs text-indigo-100 flex items-center gap-1">
+          <div className="mt-4 text-xs text-emerald-100 flex items-center gap-1">
             <CheckCircle size={12} />
-            <span>Based on your share of bills</span>
+            <span>Salary - Expenses</span>
+          </div>
+        </Card>
+
+        <Card className="p-6 bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-none shadow-lg shadow-indigo-200">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-indigo-100 text-sm font-medium mb-1">Monthly Salary</p>
+              <h3 className="text-3xl font-bold">₹{salary.amount.toFixed(2)}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg">
+              <TrendingUp size={24} className="text-white" />
+            </div>
+          </div>
+          <div className="mt-4 text-xs text-indigo-100 flex items-center gap-1">
+            <Calendar size={12} />
+            <span>{salary.receivedDate ? `Received on ${salary.receivedDate}` : 'Not set'}</span>
           </div>
         </Card>
 
         <Card className="p-6">
            <div className="flex justify-between items-start">
             <div>
-              <p className="text-slate-500 text-sm font-medium mb-1">Total Cash Paid</p>
-              <h3 className="text-3xl font-bold text-slate-800">₹{summary.totalPaidOut.toFixed(2)}</h3>
+              <p className="text-slate-500 text-sm font-medium mb-1">Total Expenses</p>
+              <h3 className="text-3xl font-bold text-slate-800">₹{summary.totalSpentByMe.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-slate-100 rounded-lg">
               <DollarSign size={24} className="text-slate-600" />
             </div>
           </div>
-          <p className="mt-4 text-xs text-slate-400">Actual money that left your wallet</p>
+          <p className="mt-4 text-xs text-slate-400">Your share of bills</p>
         </Card>
 
         <Card className="p-6">
@@ -373,16 +406,24 @@ export default function App() {
       amount: '',
       category: categories[0] || 'General',
       paidBy: 'Me',
-      splitAmong: ['Me']
+      splitAmong: ['Me'],
+      type: 'expense' // 'income' or 'expense'
     });
+
+    // Auto-detect income/expense based on category
+    const isIncomeCategory = ['Salary'].includes(form.category);
 
     const handleSubmit = async () => {
       if (!form.desc || !form.amount) return;
       try {
+        // Convert amount: positive for income, negative for expense
+        const amountValue = Number.parseFloat(form.amount);
+        const finalAmount = isIncomeCategory ? Math.abs(amountValue) : -Math.abs(amountValue);
+        
         const transactionData = {
           date: form.date,
           desc: form.desc,
-          amount: Number.parseFloat(form.amount),
+          amount: finalAmount,
           category: form.category,
           paidBy: form.paidBy,
           splitAmong: form.splitAmong
@@ -422,6 +463,12 @@ export default function App() {
                       {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
+                {isIncomeCategory && (
+                  <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-xs text-emerald-700">
+                    <TrendingUp size={14} />
+                    <span>This will be recorded as income (+)</span>
+                  </div>
+                )}
                 <input type="text" placeholder="Description (e.g. Groceries)" value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-2" />
                 <div className="relative">
                   <span className="absolute left-3 top-2 text-slate-400">₹</span>
@@ -471,11 +518,16 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {transactions.map(t => (
+                    {transactions.map(t => {
+                      const isIncome = t.amount > 0;
+                      return (
                       <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="p-4 text-slate-500 whitespace-nowrap">{t.date}</td>
                         <td className="p-4">
-                          <div className="font-medium text-slate-800">{t.desc}</div>
+                          <div className="font-medium text-slate-800 flex items-center gap-2">
+                            {t.desc}
+                            {isIncome && <Badge color="green">Income</Badge>}
+                          </div>
                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                             <Badge color="slate">{t.category}</Badge>
                             <span>by {t.paidBy}</span>
@@ -484,7 +536,9 @@ export default function App() {
                         <td className="p-4 text-slate-500 text-xs max-w-[120px] truncate" title={t.splitAmong.join(', ')}>
                            {t.splitAmong.length === (friends.length + 1) ? <Badge color="green">Everyone</Badge> : t.splitAmong.join(', ')}
                         </td>
-                        <td className="p-4 text-right font-mono font-medium text-slate-700">₹{t.amount}</td>
+                        <td className={`p-4 text-right font-mono font-medium ${isIncome ? 'text-emerald-600' : 'text-slate-700'}`}>
+                          {isIncome ? '+' : ''}₹{Math.abs(t.amount)}
+                        </td>
                         <td className="p-4 text-right">
                           <button onClick={async () => {
                             try {
@@ -499,7 +553,8 @@ export default function App() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                     {transactions.length === 0 && (
                       <tr><td colSpan={5} className="p-8 text-center text-slate-400">No transactions recorded.</td></tr>
                     )}
@@ -508,6 +563,98 @@ export default function App() {
              </div>
           </Card>
         </div>
+      </div>
+    );
+  };
+
+  const SalaryManager = () => {
+    const [salaryForm, setSalaryForm] = useState({
+      amount: salary.amount || '',
+      receivedDate: salary.receivedDate || new Date().toISOString().split('T')[0]
+    });
+
+    const handleUpdateSalary = async () => {
+      if (!salaryForm.amount) return;
+      try {
+        const updatedSalary = await salaryAPI.update(
+          Number.parseFloat(salaryForm.amount),
+          salaryForm.receivedDate
+        );
+        setSalary(updatedSalary);
+        alert('Salary updated successfully!');
+      } catch (error) {
+        console.error('Failed to update salary:', error);
+        alert('Failed to update salary. Please try again.');
+      }
+    };
+
+    return (
+      <div className="max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-300">
+        <Card className="p-8">
+           <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wallet size={32} />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800">Salary Management</h2>
+              <p className="text-slate-500 text-sm mt-1">Track your monthly income to calculate your balance</p>
+           </div>
+
+           <div className="space-y-6">
+             <div>
+               <label className="block text-sm font-semibold text-slate-700 mb-2">Monthly Salary</label>
+               <div className="relative">
+                 <span className="absolute left-4 top-4 text-slate-400 text-lg">₹</span>
+                 <input
+                   type="number"
+                   value={salaryForm.amount}
+                   onChange={e => setSalaryForm({...salaryForm, amount: e.target.value})}
+                   placeholder="Enter your salary amount"
+                   className="w-full pl-10 p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all shadow-sm text-lg font-mono"
+                 />
+               </div>
+             </div>
+
+             <div>
+               <label className="block text-sm font-semibold text-slate-700 mb-2">Received Date</label>
+               <input
+                 type="date"
+                 value={salaryForm.receivedDate}
+                 onChange={e => setSalaryForm({...salaryForm, receivedDate: e.target.value})}
+                 className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all shadow-sm"
+               />
+             </div>
+
+             <Button onClick={handleUpdateSalary} className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200">
+               Update Salary
+             </Button>
+           </div>
+
+           {salary.amount > 0 && (
+             <div className="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-100">
+               <h3 className="text-sm font-semibold text-slate-700 mb-4">Financial Summary</h3>
+               <div className="space-y-3">
+                 <div className="flex justify-between items-center">
+                   <span className="text-slate-600">Current Salary</span>
+                   <span className="font-bold text-emerald-600">₹{salary.amount.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between items-center">
+                   <span className="text-slate-600">Total Expenses</span>
+                   <span className="font-bold text-red-600">-₹{summary.totalSpentByMe.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between items-center">
+                   <span className="text-slate-600">Additional Income</span>
+                   <span className="font-bold text-emerald-600">+₹{summary.totalIncome.toFixed(2)}</span>
+                 </div>
+                 <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                   <span className="text-slate-800 font-semibold">Net Balance</span>
+                   <span className={`font-bold text-xl ${summary.netBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                     ₹{summary.netBalance.toFixed(2)}
+                   </span>
+                 </div>
+               </div>
+             </div>
+           )}
+        </Card>
       </div>
     );
   };
@@ -653,6 +800,7 @@ export default function App() {
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { id: 'transactions', icon: Table, label: 'Transactions' },
+            { id: 'salary', icon: Wallet, label: 'Salary' },
             { id: 'friends', icon: Users, label: 'Friends' },
             { id: 'settlements', icon: Calculator, label: 'Settlements' }
           ].map(item => (
@@ -695,6 +843,7 @@ export default function App() {
           <>
             {activeTab === 'dashboard' && <Dashboard />}
             {activeTab === 'transactions' && <TransactionManager />}
+            {activeTab === 'salary' && <SalaryManager />}
             {activeTab === 'friends' && <FriendsManager />}
             {activeTab === 'settlements' && <SettlementView />}
           </>

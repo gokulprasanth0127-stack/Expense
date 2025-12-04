@@ -1,4 +1,10 @@
-import { sql } from '@vercel/postgres';
+import { Redis } from '@upstash/redis';
+
+// Initialize Redis client
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -11,44 +17,19 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { userId = 'default_user' } = req.query; // Simple user identification
+  const { userId = 'default_user' } = req.query;
+  const transactionsKey = `user:${userId}:transactions`;
+  const counterKey = `user:${userId}:transaction_counter`;
 
   try {
-    
-    // Initialize table if it doesn't exist
-    await sql`
-      CREATE TABLE IF NOT EXISTS transactions (
-        id SERIAL PRIMARY KEY,
-        user_id VARCHAR(255) NOT NULL,
-        date DATE NOT NULL,
-        description TEXT NOT NULL,
-        amount DECIMAL(10, 2) NOT NULL,
-        category VARCHAR(100) NOT NULL,
-        paid_by VARCHAR(100) NOT NULL,
-        split_among TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-
     if (req.method === 'GET') {
       // Get all transactions for user
-      const { rows } = await sql`
-        SELECT * FROM transactions 
-        WHERE user_id = ${userId}
-        ORDER BY date DESC, created_at DESC
-      `;
+      const transactionsData = await redis.get(transactionsKey);
+      const transactions = transactionsData || [];
       
-      // Transform to match frontend format
-      const transactions = rows.map(row => ({
-        id: row.id,
-        date: row.date.toISOString().split('T')[0],
-        desc: row.description,
-        amount: parseFloat(row.amount),
-        category: row.category,
-        paidBy: row.paid_by,
-        splitAmong: JSON.parse(row.split_among)
-      }));
-
+      // Sort by date (newest first)
+      transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
       return res.status(200).json(transactions);
     }
 
@@ -56,21 +37,28 @@ export default async function handler(req, res) {
       // Add new transaction
       const { date, desc, amount, category, paidBy, splitAmong } = req.body;
 
-      const { rows } = await sql`
-        INSERT INTO transactions (user_id, date, description, amount, category, paid_by, split_among)
-        VALUES (${userId}, ${date}, ${desc}, ${amount}, ${category}, ${paidBy}, ${JSON.stringify(splitAmong)})
-        RETURNING *
-      `;
+      // Get current transactions
+      const transactionsData = await redis.get(transactionsKey);
+      const transactions = transactionsData || [];
+
+      // Generate new ID
+      const newId = await redis.incr(counterKey);
 
       const newTransaction = {
-        id: rows[0].id,
-        date: rows[0].date.toISOString().split('T')[0],
-        desc: rows[0].description,
-        amount: parseFloat(rows[0].amount),
-        category: rows[0].category,
-        paidBy: rows[0].paid_by,
-        splitAmong: JSON.parse(rows[0].split_among)
+        id: newId,
+        date,
+        desc,
+        amount: Number.parseFloat(amount),
+        category,
+        paidBy,
+        splitAmong
       };
+
+      // Add transaction to array
+      transactions.push(newTransaction);
+
+      // Save back to Redis
+      await redis.set(transactionsKey, transactions);
 
       return res.status(201).json(newTransaction);
     }
@@ -79,10 +67,15 @@ export default async function handler(req, res) {
       // Delete transaction
       const { id } = req.query;
       
-      await sql`
-        DELETE FROM transactions 
-        WHERE id = ${id} AND user_id = ${userId}
-      `;
+      // Get current transactions
+      const transactionsData = await redis.get(transactionsKey);
+      const transactions = transactionsData || [];
+
+      // Filter out the transaction to delete
+      const updatedTransactions = transactions.filter(t => t.id !== Number.parseInt(id));
+
+      // Save back to Redis
+      await redis.set(transactionsKey, updatedTransactions);
 
       return res.status(200).json({ message: 'Transaction deleted' });
     }

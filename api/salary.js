@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -18,35 +18,31 @@ export default async function handler(req, res) {
   }
 
   const { userId = 'default_user' } = req.query;
-  const friendsKey = `user:${userId}:friends`;
+  const salaryKey = `user:${userId}:salary`;
 
   try {
     if (req.method === 'GET') {
-      // Get all friends for user
-      const friends = await redis.smembers(friendsKey);
-      return res.status(200).json(friends || []);
+      // Get salary data
+      const salaryData = await redis.get(salaryKey);
+      return res.status(200).json(salaryData || { amount: 0, receivedDate: null });
     }
 
-    if (req.method === 'POST') {
-      // Add new friend
-      const { name } = req.body;
-
-      // Check if friend already exists
-      const exists = await redis.sismember(friendsKey, name);
-      if (exists) {
-        return res.status(400).json({ error: 'Friend already exists' });
-      }
-
-      // Add friend to set
-      await redis.sadd(friendsKey, name);
-      return res.status(201).json({ name });
+    if (req.method === 'POST' || req.method === 'PUT') {
+      // Set or update salary
+      const { amount, receivedDate } = req.body;
+      const salaryData = {
+        amount: Number.parseFloat(amount),
+        receivedDate: receivedDate || new Date().toISOString().split('T')[0]
+      };
+      
+      await redis.set(salaryKey, salaryData);
+      return res.status(200).json(salaryData);
     }
 
     if (req.method === 'DELETE') {
-      // Delete friend
-      const { name } = req.query;
-      await redis.srem(friendsKey, name);
-      return res.status(200).json({ message: 'Friend deleted' });
+      // Clear salary data
+      await redis.del(salaryKey);
+      return res.status(200).json({ message: 'Salary data cleared' });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

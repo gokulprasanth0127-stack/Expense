@@ -68,3 +68,33 @@ export const friendsAPI = {
     return response.json();
   }
 };
+
+// Salary API
+export const salaryAPI = {
+  // Get salary data
+  get: async () => {
+    const response = await fetch(`${API_BASE_URL}/salary?userId=${USER_ID}`);
+    if (!response.ok) throw new Error('Failed to fetch salary');
+    return response.json();
+  },
+
+  // Set or update salary
+  update: async (amount, receivedDate) => {
+    const response = await fetch(`${API_BASE_URL}/salary?userId=${USER_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, receivedDate })
+    });
+    if (!response.ok) throw new Error('Failed to update salary');
+    return response.json();
+  },
+
+  // Clear salary data
+  clear: async () => {
+    const response = await fetch(`${API_BASE_URL}/salary?userId=${USER_ID}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to clear salary');
+    return response.json();
+  }
+};
