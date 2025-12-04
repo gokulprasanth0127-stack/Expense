@@ -15,6 +15,7 @@
    git add .
    git commit -m "Configure Supabase database"
    git push origin main
+   
    ```
 
 3. **Wait for deployment** (~1-2 minutes)
