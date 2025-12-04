@@ -14,6 +14,7 @@ import {
   Wallet,
   CheckCircle
 } from 'lucide-react';
+import { transactionsAPI, friendsAPI } from './utils/api';
 
 // --- Shared UI Components ---
 
@@ -51,29 +52,42 @@ const Badge = ({ children, color = "blue" }) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
   
-  // --- Persistent State (LocalStorage) ---
-  const [friends, setFriends] = useState(() => {
-    const saved = localStorage.getItem('node_friends');
-    return saved ? JSON.parse(saved) : ['Rahul', 'Amit', 'Sneha'];
-  });
+  // --- State Management ---
+  const [friends, setFriends] = useState([]);
+  const [categories] = useState([
+    'Rent', 'EMI', 'Wifi', 'Recharge', 'Groceries', 'Snacks', 'Gym', 'Help',
+    'Public Transport', 'Fuel', 'Vehicle Maintenance', 'Tea/Coffee', 'Dinner',
+    'Lunch', 'Breakfast', 'Clothing', 'Movies', 'Sports', 'Medicine', 'Eggs',
+    'HouseHold Things', 'Split', 'Cash ATM', 'Invest', 'Settle'
+  ]);
+  const [transactions, setTransactions] = useState([]);
 
-  const [categories] = useState(() => {
-    const saved = localStorage.getItem('node_categories');
-    return saved ? JSON.parse(saved) : ['Food', 'Rent', 'Travel', 'Party', 'Utilities', 'Groceries'];
-  });
-
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('node_transactions');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, date: '2023-10-01', desc: 'Pizza Night', amount: 1200, category: 'Food', paidBy: 'Me', splitAmong: ['Me', 'Rahul', 'Amit'] },
-      { id: 2, date: '2023-10-02', desc: 'Uber to Club', amount: 450, category: 'Travel', paidBy: 'Rahul', splitAmong: ['Me', 'Rahul'] },
-    ];
-  });
-
-  // Save to LocalStorage whenever state changes
-  useEffect(() => { localStorage.setItem('node_friends', JSON.stringify(friends)); }, [friends]);
-  useEffect(() => { localStorage.setItem('node_transactions', JSON.stringify(transactions)); }, [transactions]);
+  // Load data from backend on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [friendsData, transactionsData] = await Promise.all([
+          friendsAPI.getAll(),
+          transactionsAPI.getAll()
+        ]);
+        setFriends(friendsData.length > 0 ? friendsData : ['Rahul', 'Amit', 'Sneha']);
+        setTransactions(transactionsData);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        // Fallback to localStorage if API fails
+        const savedFriends = localStorage.getItem('node_friends');
+        const savedTransactions = localStorage.getItem('node_transactions');
+        if (savedFriends) setFriends(JSON.parse(savedFriends));
+        if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   // --- Core Calculation Logic ---
   const summary = useMemo(() => {
@@ -130,7 +144,7 @@ export default function App() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-indigo-100 text-sm font-medium mb-1">My Total Expense</p>
-              <h3 className="text-3xl font-bold">${summary.totalSpentByMe.toFixed(2)}</h3>
+              <h3 className="text-3xl font-bold">₹{summary.totalSpentByMe.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg">
               <Wallet size={24} className="text-white" />
@@ -146,7 +160,7 @@ export default function App() {
            <div className="flex justify-between items-start">
             <div>
               <p className="text-slate-500 text-sm font-medium mb-1">Total Cash Paid</p>
-              <h3 className="text-3xl font-bold text-slate-800">${summary.totalPaidOut.toFixed(2)}</h3>
+              <h3 className="text-3xl font-bold text-slate-800">₹{summary.totalPaidOut.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-slate-100 rounded-lg">
               <DollarSign size={24} className="text-slate-600" />
@@ -226,9 +240,9 @@ export default function App() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="block font-bold text-slate-800">${t.amount}</span>
+                  <span className="block font-bold text-slate-800">₹{t.amount}</span>
                   <span className="text-xs text-slate-400">
-                    {t.splitAmong.includes('Me') ? `My Share: $${(t.amount/t.splitAmong.length).toFixed(0)}` : 'Not involved'}
+                    {t.splitAmong.includes('Me') ? `My Share: ₹${(t.amount/t.splitAmong.length).toFixed(0)}` : 'Not involved'}
                   </span>
                 </div>
               </div>
@@ -255,15 +269,24 @@ export default function App() {
       splitAmong: ['Me']
     });
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
       if (!form.desc || !form.amount) return;
-      const newTrans = {
-        id: Date.now(),
-        ...form,
-        amount: Number.parseFloat(form.amount)
-      };
-      setTransactions([...transactions, newTrans]);
-      setForm({ ...form, desc: '', amount: '' }); // Keep date/cat/split same for speed
+      try {
+        const transactionData = {
+          date: form.date,
+          desc: form.desc,
+          amount: Number.parseFloat(form.amount),
+          category: form.category,
+          paidBy: form.paidBy,
+          splitAmong: form.splitAmong
+        };
+        const newTrans = await transactionsAPI.create(transactionData);
+        setTransactions([...transactions, newTrans]);
+        setForm({ ...form, desc: '', amount: '' }); // Keep date/cat/split same for speed
+      } catch (error) {
+        console.error('Failed to add transaction:', error);
+        alert('Failed to add transaction. Please try again.');
+      }
     };
 
     const toggleSplit = (person) => {
@@ -294,7 +317,7 @@ export default function App() {
                 </div>
                 <input type="text" placeholder="Description (e.g. Groceries)" value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-2" />
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-slate-400">$</span>
+                  <span className="absolute left-3 top-2 text-slate-400">₹</span>
                   <input type="number" placeholder="0.00" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full pl-7 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono font-medium" />
                 </div>
               </div>
@@ -354,9 +377,17 @@ export default function App() {
                         <td className="p-4 text-slate-500 text-xs max-w-[120px] truncate" title={t.splitAmong.join(', ')}>
                            {t.splitAmong.length === (friends.length + 1) ? <Badge color="green">Everyone</Badge> : t.splitAmong.join(', ')}
                         </td>
-                        <td className="p-4 text-right font-mono font-medium text-slate-700">${t.amount}</td>
+                        <td className="p-4 text-right font-mono font-medium text-slate-700">₹{t.amount}</td>
                         <td className="p-4 text-right">
-                          <button onClick={() => setTransactions(transactions.filter(x => x.id !== t.id))} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                          <button onClick={async () => {
+                            try {
+                              await transactionsAPI.delete(t.id);
+                              setTransactions(transactions.filter(x => x.id !== t.id));
+                            } catch (error) {
+                              console.error('Failed to delete transaction:', error);
+                              alert('Failed to delete transaction. Please try again.');
+                            }
+                          }} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -376,6 +407,29 @@ export default function App() {
 
   const FriendsManager = () => {
     const [name, setName] = useState('');
+    
+    const handleAddFriend = async () => {
+      if (!name || friends.includes(name)) return;
+      try {
+        await friendsAPI.create(name);
+        setFriends([...friends, name]);
+        setName('');
+      } catch (error) {
+        console.error('Failed to add friend:', error);
+        alert(error.message || 'Failed to add friend. Please try again.');
+      }
+    };
+
+    const handleDeleteFriend = async (friendName) => {
+      try {
+        await friendsAPI.delete(friendName);
+        setFriends(friends.filter(x => x !== friendName));
+      } catch (error) {
+        console.error('Failed to delete friend:', error);
+        alert('Failed to delete friend. Please try again.');
+      }
+    };
+
     return (
       <div className="max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-300">
         <Card className="p-8">
@@ -396,13 +450,11 @@ export default function App() {
                className="flex-1 p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm"
                onKeyDown={e => {
                  if (e.key === 'Enter' && name) {
-                   if (!friends.includes(name)) { setFriends([...friends, name]); setName(''); }
+                   handleAddFriend();
                  }
                }}
              />
-             <Button onClick={() => {
-                if (name && !friends.includes(name)) { setFriends([...friends, name]); setName(''); }
-             }}>Add</Button>
+             <Button onClick={handleAddFriend}>Add</Button>
            </div>
 
            <div className="space-y-3">
@@ -415,7 +467,7 @@ export default function App() {
                    <span className="font-medium text-slate-700">{f}</span>
                  </div>
                  <button 
-                   onClick={() => setFriends(friends.filter(x => x !== f))}
+                   onClick={() => handleDeleteFriend(f)}
                    className="text-slate-300 hover:text-red-500 p-2 rounded-lg hover:bg-white transition-all"
                  >
                    <Trash2 size={18} />
@@ -458,7 +510,7 @@ export default function App() {
                  </div>
                  <div className="text-right">
                     <span className={`block text-2xl font-bold ${isOwed ? 'text-green-600' : 'text-red-500'}`}>
-                      ${val.toFixed(2)}
+                      ₹{val.toFixed(2)}
                     </span>
                     <button className="text-xs text-indigo-600 hover:underline mt-1 font-medium">Mark Settled</button>
                  </div>
@@ -525,10 +577,21 @@ export default function App() {
           </div>
         </header>
 
-        {activeTab === 'dashboard' && <Dashboard />}
-        {activeTab === 'transactions' && <TransactionManager />}
-        {activeTab === 'friends' && <FriendsManager />}
-        {activeTab === 'settlements' && <SettlementView />}
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-500">Loading your data...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {activeTab === 'dashboard' && <Dashboard />}
+            {activeTab === 'transactions' && <TransactionManager />}
+            {activeTab === 'friends' && <FriendsManager />}
+            {activeTab === 'settlements' && <SettlementView />}
+          </>
+        )}
       </main>
     </div>
   );
