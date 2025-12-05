@@ -270,7 +270,7 @@ export default function App() {
           income: 0,
           expenses: 0,
           myExpenseShare: 0,
-          friendsOweMe: 0 // Track money friends owe me (already paid out)
+          iOweFriends: 0 // Track money I owe friends (cash I still have)
         };
       }
       
@@ -282,16 +282,13 @@ export default function App() {
       } else if (!isIncome) {
         if (t.paidBy === 'Me') {
           monthlyData[monthKey].expenses += Math.abs(t.amount);
-          
-          // Calculate how much friends owe me from this transaction
-          t.splitAmong.forEach(person => {
-            if (person !== 'Me') {
-              monthlyData[monthKey].friendsOweMe += amountPerPerson;
-            }
-          });
         }
         if (t.splitAmong.includes('Me')) {
           monthlyData[monthKey].myExpenseShare += amountPerPerson;
+        }
+        // Calculate how much I owe friends (someone else paid, I was in the split)
+        if (t.paidBy !== 'Me' && t.splitAmong.includes('Me')) {
+          monthlyData[monthKey].iOweFriends += amountPerPerson;
         }
       }
     });
@@ -305,10 +302,13 @@ export default function App() {
     const statements = sortedMonths.map((month) => {
       const monthlySalary = salary.amount || 0;
       const startingBalance = runningBalance;
+      
+      // Calculate ending balance: Start + Salary + Income - Expenses + (Expenses - MyShare)
+      // This represents total money paid out minus what you actually owe
       const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
       
-      // Savings = Ending Balance - Money friends owe me (since I've already paid it out)
-      const savings = endingBalance - month.friendsOweMe;
+      // Savings = Current Balance = Ending Balance + Money I owe friends (still in hand)
+      const savings = endingBalance + month.iOweFriends;
       
       // Update running balance for next month
       runningBalance = endingBalance;
@@ -318,7 +318,7 @@ export default function App() {
         salary: monthlySalary,
         startingBalance: startingBalance,
         endingBalance: endingBalance,
-        savings: savings // Actual cash in hand after accounting for money owed by friends
+        savings: savings // Current balance - actual cash in hand
       };
     });
     
