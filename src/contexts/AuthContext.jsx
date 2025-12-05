@@ -25,8 +25,8 @@ export function AuthProvider({ children }) {
         });
 
         if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
+          const data = await response.json();
+          setUser(data.user); // Extract user from response
           setToken(savedToken);
         } else {
           // Token invalid, clear it

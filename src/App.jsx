@@ -269,7 +269,8 @@ export default function App() {
           monthName: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           income: 0,
           expenses: 0,
-          myExpenseShare: 0
+          myExpenseShare: 0,
+          friendsOweMe: 0 // Track money friends owe me (already paid out)
         };
       }
       
@@ -281,6 +282,13 @@ export default function App() {
       } else if (!isIncome) {
         if (t.paidBy === 'Me') {
           monthlyData[monthKey].expenses += Math.abs(t.amount);
+          
+          // Calculate how much friends owe me from this transaction
+          t.splitAmong.forEach(person => {
+            if (person !== 'Me') {
+              monthlyData[monthKey].friendsOweMe += amountPerPerson;
+            }
+          });
         }
         if (t.splitAmong.includes('Me')) {
           monthlyData[monthKey].myExpenseShare += amountPerPerson;
@@ -298,7 +306,9 @@ export default function App() {
       const monthlySalary = salary.amount || 0;
       const startingBalance = runningBalance;
       const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
-      const savings = endingBalance - startingBalance;
+      
+      // Savings = Ending Balance - Money friends owe me (since I've already paid it out)
+      const savings = endingBalance - month.friendsOweMe;
       
       // Update running balance for next month
       runningBalance = endingBalance;
@@ -308,7 +318,7 @@ export default function App() {
         salary: monthlySalary,
         startingBalance: startingBalance,
         endingBalance: endingBalance,
-        savings: savings
+        savings: savings // Actual cash in hand after accounting for money owed by friends
       };
     });
     
