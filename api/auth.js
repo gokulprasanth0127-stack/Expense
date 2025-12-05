@@ -1,6 +1,12 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+
+// Initialize Redis client
+const redis = new Redis({
+  url: process.env.expense_KV_REST_API_URL || process.env.expense_KV_URL,
+  token: process.env.expense_KV_REST_API_TOKEN,
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
@@ -50,7 +56,7 @@ export default async function handler(req, res) {
       }
 
       // Check if user already exists
-      const existingUserId = await kv.get(`user:email:${email.toLowerCase()}`);
+      const existingUserId = await redis.get(`user:email:${email.toLowerCase()}`);
       if (existingUserId) {
         return res.status(400).json({ error: 'User with this email already exists' });
       }
@@ -70,9 +76,9 @@ export default async function handler(req, res) {
       };
 
       // Store user data
-      await kv.set(`users:${userId}`, user);
-      await kv.set(`users:${userId}:password`, passwordHash);
-      await kv.set(`user:email:${email.toLowerCase()}`, userId);
+      await redis.set(`users:${userId}`, user);
+      await redis.set(`users:${userId}:password`, passwordHash);
+      await redis.set(`user:email:${email.toLowerCase()}`, userId);
 
       // Generate token
       const token = generateToken(userId);
@@ -93,15 +99,15 @@ export default async function handler(req, res) {
       }
 
       // Get user ID from email
-      const userId = await kv.get(`user:email:${email.toLowerCase()}`);
+      const userId = await redis.get(`user:email:${email.toLowerCase()}`);
       if (!userId) {
         return res.status(401).json({ error: 'Invalid email or password' });
       }
 
       // Get user data and password hash
       const [user, passwordHash] = await Promise.all([
-        kv.get(`users:${userId}`),
-        kv.get(`users:${userId}:password`)
+        redis.get(`users:${userId}`),
+        redis.get(`users:${userId}:password`)
       ]);
 
       if (!user || !passwordHash) {
@@ -131,7 +137,7 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const user = await kv.get(`users:${userId}`);
+      const user = await redis.get(`users:${userId}`);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
