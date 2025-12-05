@@ -113,11 +113,11 @@ export const salaryAPI = {
   },
 
   // Set or update salary
-  update: async (amount, receivedDate) => {
+  update: async (amount, receivedDate, previousBalance = 0) => {
     const response = await fetch(`${API_BASE_URL}/salary`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ amount, receivedDate })
+      body: JSON.stringify({ amount, receivedDate, previousBalance })
     });
     if (!response.ok) {
       const error = await response.json();

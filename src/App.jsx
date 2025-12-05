@@ -76,7 +76,7 @@ export default function App() {
     'HouseHold Things', 'Split', 'Cash ATM', 'Invest', 'Settle'
   ]);
   const [transactions, setTransactions] = useState([]);
-  const [salary, setSalary] = useState({ amount: 0, receivedDate: null });
+  const [salary, setSalary] = useState({ amount: 0, receivedDate: null, previousBalance: 0 });
   const [eggRecords, setEggRecords] = useState([]);
 
   // Load data from backend on mount
@@ -201,11 +201,12 @@ export default function App() {
       });
     });
 
-    // Calculate balance: Salary + Income - Money I spent - Money friends owe me (already paid out)
+    // Calculate balance: Previous month balance + Salary + Income - Money I spent - Money friends owe me (already paid out)
     // But add back money I owe to friends (I still have that cash)
-    const netBalance = salary.amount + totalIncome - totalPaidOut + totalIOwe;
+    const previousBalance = salary.previousBalance || 0;
+    const netBalance = previousBalance + salary.amount + totalIncome - totalPaidOut + totalIOwe;
 
-    return { totalSpentByMe, totalPaidOut, totalIncome, balances, netBalance, totalOwedToMe, totalIOwe };
+    return { totalSpentByMe, totalPaidOut, totalIncome, balances, netBalance, totalOwedToMe, totalIOwe, previousBalance };
   }, [transactions, friends, salary]);
 
   const categoryData = useMemo(() => {
@@ -253,6 +254,59 @@ export default function App() {
   const topCategoriesData = useMemo(() => {
     return categoryData.slice(0, 6); // Top 6 categories
   }, [categoryData]);
+
+  // Monthly breakdown calculation
+  const monthlyStatements = useMemo(() => {
+    const monthlyData = {};
+    
+    transactions.forEach(t => {
+      const date = new Date(t.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = {
+          month: monthKey,
+          monthName: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          income: 0,
+          expenses: 0,
+          myExpenseShare: 0
+        };
+      }
+      
+      const isIncome = t.amount > 0;
+      const amountPerPerson = Math.abs(t.amount) / t.splitAmong.length;
+      
+      if (isIncome && t.splitAmong.includes('Me')) {
+        monthlyData[monthKey].income += amountPerPerson;
+      } else if (!isIncome) {
+        if (t.paidBy === 'Me') {
+          monthlyData[monthKey].expenses += Math.abs(t.amount);
+        }
+        if (t.splitAmong.includes('Me')) {
+          monthlyData[monthKey].myExpenseShare += amountPerPerson;
+        }
+      }
+    });
+    
+    // Convert to array and sort by month
+    const statements = Object.values(monthlyData)
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((month, index, arr) => {
+        const prevBalance = index === 0 ? (salary.previousBalance || 0) : arr[index - 1].endingBalance;
+        const monthlySalary = salary.amount; // In real app, you'd track salary per month
+        const endingBalance = prevBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
+        
+        return {
+          ...month,
+          salary: monthlySalary,
+          startingBalance: prevBalance,
+          endingBalance: endingBalance,
+          savings: endingBalance - prevBalance
+        };
+      });
+    
+    return statements;
+  }, [transactions, salary]);
 
   const chartColors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#3b82f6', '#ef4444', '#06b6d4', '#f97316', '#84cc16'];
 
@@ -1082,18 +1136,24 @@ export default function App() {
   const SalaryManager = () => {
     const [salaryForm, setSalaryForm] = useState({
       amount: salary.amount || '',
-      receivedDate: salary.receivedDate || new Date().toISOString().split('T')[0]
+      receivedDate: salary.receivedDate || new Date().toISOString().split('T')[0],
+      previousBalance: salary.previousBalance || 0
     });
+    const [carryForward, setCarryForward] = useState(false);
 
     const handleUpdateSalary = async () => {
       if (!salaryForm.amount) return;
       try {
+        const newPreviousBalance = carryForward ? summary.netBalance : salaryForm.previousBalance;
+        
         const updatedSalary = await salaryAPI.update(
           Number.parseFloat(salaryForm.amount),
-          salaryForm.receivedDate
+          salaryForm.receivedDate,
+          newPreviousBalance
         );
         setSalary(updatedSalary);
-        alert('Salary updated successfully!');
+        setCarryForward(false);
+        alert(`Salary updated successfully!${carryForward ? '\n\nPrevious balance of ₹' + summary.netBalance.toFixed(2) + ' carried forward.' : ''}`);
       } catch (error) {
         console.error('Failed to update salary:', error);
         alert('Failed to update salary. Please try again.');
@@ -1136,8 +1196,33 @@ export default function App() {
                />
              </div>
 
+             {/* Carryforward Option */}
+             {summary.netBalance > 0 && (
+               <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+                 <label className="flex items-start gap-3 cursor-pointer">
+                   <input
+                     type="checkbox"
+                     checked={carryForward}
+                     onChange={e => setCarryForward(e.target.checked)}
+                     className="mt-1 w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                   />
+                   <div className="flex-1">
+                     <p className="font-semibold text-indigo-900">Carry forward current balance</p>
+                     <p className="text-sm text-indigo-700 mt-1">
+                       Add your current balance of <span className="font-bold">₹{summary.netBalance.toFixed(2)}</span> to next month's starting balance.
+                       {carryForward && (
+                         <span className="block mt-2 text-indigo-800">
+                           ✓ New starting balance: ₹{(summary.netBalance + Number.parseFloat(salaryForm.amount || 0)).toFixed(2)}
+                         </span>
+                       )}
+                     </p>
+                   </div>
+                 </label>
+               </div>
+             )}
+
              <Button onClick={handleUpdateSalary} className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200">
-               Update Salary
+               {carryForward ? 'Update & Carry Forward' : 'Update Salary'}
              </Button>
            </div>
 
@@ -1145,6 +1230,12 @@ export default function App() {
              <div className="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-100">
                <h3 className="text-sm font-semibold text-slate-700 mb-4">Financial Summary</h3>
                <div className="space-y-3">
+                 {summary.previousBalance > 0 && (
+                   <div className="flex justify-between items-center">
+                     <span className="text-slate-600">Previous Balance</span>
+                     <span className="font-bold text-indigo-600">₹{summary.previousBalance.toFixed(2)}</span>
+                   </div>
+                 )}
                  <div className="flex justify-between items-center">
                    <span className="text-slate-600">Current Salary</span>
                    <span className="font-bold text-emerald-600">₹{salary.amount.toFixed(2)}</span>
@@ -1297,6 +1388,119 @@ export default function App() {
     </div>
   );
 
+  const MonthlyStatements = () => (
+    <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Card className="p-4 md:p-8">
+         <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Calendar size={32} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Monthly Statements</h2>
+            <p className="text-slate-500">Track your financial progress month by month</p>
+         </div>
+
+         {monthlyStatements.length > 0 ? (
+           <div className="overflow-x-auto">
+             <table className="w-full text-sm">
+               <thead className="bg-slate-50 text-slate-600 font-semibold">
+                 <tr>
+                   <th className="p-3 md:p-4 text-left rounded-tl-lg">Month</th>
+                   <th className="p-3 md:p-4 text-right">Starting</th>
+                   <th className="p-3 md:p-4 text-right">Salary</th>
+                   <th className="p-3 md:p-4 text-right">Income</th>
+                   <th className="p-3 md:p-4 text-right">Expenses</th>
+                   <th className="p-3 md:p-4 text-right">Ending</th>
+                   <th className="p-3 md:p-4 text-right rounded-tr-lg">Savings</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-100">
+                 {monthlyStatements.map((statement, index) => (
+                   <tr key={statement.month} className="hover:bg-slate-50 transition-colors">
+                     <td className="p-3 md:p-4 font-medium text-slate-800">
+                       {statement.monthName}
+                     </td>
+                     <td className="p-3 md:p-4 text-right font-mono text-slate-600">
+                       ₹{statement.startingBalance.toFixed(0)}
+                     </td>
+                     <td className="p-3 md:p-4 text-right font-mono text-emerald-600 font-semibold">
+                       +₹{statement.salary.toFixed(0)}
+                     </td>
+                     <td className="p-3 md:p-4 text-right font-mono text-emerald-500">
+                       {statement.income > 0 ? `+₹${statement.income.toFixed(0)}` : '-'}
+                     </td>
+                     <td className="p-3 md:p-4 text-right font-mono text-red-600 font-semibold">
+                       -₹{statement.expenses.toFixed(0)}
+                     </td>
+                     <td className="p-3 md:p-4 text-right font-mono font-bold text-slate-800">
+                       ₹{statement.endingBalance.toFixed(0)}
+                     </td>
+                     <td className={`p-3 md:p-4 text-right font-mono font-bold ${statement.savings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                       {statement.savings >= 0 ? '+' : ''}₹{statement.savings.toFixed(0)}
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+               <tfoot className="bg-indigo-50 font-bold">
+                 <tr>
+                   <td className="p-3 md:p-4 text-slate-800">Total</td>
+                   <td className="p-3 md:p-4 text-right text-slate-600">-</td>
+                   <td className="p-3 md:p-4 text-right font-mono text-emerald-600">
+                     +₹{monthlyStatements.reduce((sum, s) => sum + s.salary, 0).toFixed(0)}
+                   </td>
+                   <td className="p-3 md:p-4 text-right font-mono text-emerald-500">
+                     +₹{monthlyStatements.reduce((sum, s) => sum + s.income, 0).toFixed(0)}
+                   </td>
+                   <td className="p-3 md:p-4 text-right font-mono text-red-600">
+                     -₹{monthlyStatements.reduce((sum, s) => sum + s.expenses, 0).toFixed(0)}
+                   </td>
+                   <td className="p-3 md:p-4 text-right font-mono text-indigo-800">
+                     ₹{monthlyStatements[monthlyStatements.length - 1]?.endingBalance.toFixed(0) || 0}
+                   </td>
+                   <td className={`p-3 md:p-4 text-right font-mono ${
+                     monthlyStatements.reduce((sum, s) => sum + s.savings, 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                   }`}>
+                     {monthlyStatements.reduce((sum, s) => sum + s.savings, 0) >= 0 ? '+' : ''}₹{monthlyStatements.reduce((sum, s) => sum + s.savings, 0).toFixed(0)}
+                   </td>
+                 </tr>
+               </tfoot>
+             </table>
+           </div>
+         ) : (
+           <div className="text-center py-12">
+             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+               <Calendar size={32} className="text-slate-400" />
+             </div>
+             <p className="text-slate-400">No monthly data available yet. Add transactions to see your monthly breakdown.</p>
+           </div>
+         )}
+
+         {/* Summary Cards */}
+         {monthlyStatements.length > 0 && (
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+             <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-200">
+               <p className="text-sm text-emerald-700 font-medium mb-1">Total Saved</p>
+               <p className="text-2xl font-bold text-emerald-800">
+                 ₹{monthlyStatements.reduce((sum, s) => sum + s.savings, 0).toFixed(0)}
+               </p>
+             </div>
+             <div className="p-4 bg-gradient-to-br from-indigo-50 to-violet-50 rounded-xl border border-indigo-200">
+               <p className="text-sm text-indigo-700 font-medium mb-1">Avg Monthly Expense</p>
+               <p className="text-2xl font-bold text-indigo-800">
+                 ₹{(monthlyStatements.reduce((sum, s) => sum + s.expenses, 0) / monthlyStatements.length).toFixed(0)}
+               </p>
+             </div>
+             <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+               <p className="text-sm text-amber-700 font-medium mb-1">Months Tracked</p>
+               <p className="text-2xl font-bold text-amber-800">
+                 {monthlyStatements.length}
+               </p>
+             </div>
+           </div>
+         )}
+      </Card>
+    </div>
+  );
+
   // Show auth loading screen
   if (authLoading) {
     return (
@@ -1386,6 +1590,7 @@ export default function App() {
             {[
               { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
               { id: 'transactions', icon: Table, label: 'Transactions' },
+              { id: 'monthly', icon: Calendar, label: 'Monthly' },
               { id: 'salary', icon: Wallet, label: 'Salary' },
               { id: 'friends', icon: Users, label: 'Friends' },
               { id: 'settlements', icon: Calculator, label: 'Settlements' }
@@ -1421,7 +1626,8 @@ export default function App() {
           <div className="flex justify-around items-center px-2 py-2 safe-bottom">
             {[
               { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
-              { id: 'transactions', icon: Table, label: 'Transactions' },
+              { id: 'transactions', icon: Table, label: 'Trans' },
+              { id: 'monthly', icon: Calendar, label: 'Monthly' },
               { id: 'salary', icon: Wallet, label: 'Salary' },
               { id: 'friends', icon: Users, label: 'Friends' },
               { id: 'settlements', icon: Calculator, label: 'Settle' }
@@ -1509,6 +1715,7 @@ export default function App() {
           <>
             {activeTab === 'dashboard' && <Dashboard />}
             {activeTab === 'transactions' && <TransactionManager />}
+            {activeTab === 'monthly' && <MonthlyStatements />}
             {activeTab === 'salary' && <SalaryManager />}
             {activeTab === 'friends' && <FriendsManager />}
             {activeTab === 'settlements' && <SettlementView />}

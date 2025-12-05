@@ -49,15 +49,16 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       // Get salary data
       const salaryData = await redis.get(salaryKey);
-      return res.status(200).json(salaryData || { amount: 0, receivedDate: null });
+      return res.status(200).json(salaryData || { amount: 0, receivedDate: null, previousBalance: 0 });
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
       // Set or update salary
-      const { amount, receivedDate } = req.body;
+      const { amount, receivedDate, previousBalance } = req.body;
       const salaryData = {
         amount: Number.parseFloat(amount),
-        receivedDate: receivedDate || new Date().toISOString().split('T')[0]
+        receivedDate: receivedDate || new Date().toISOString().split('T')[0],
+        previousBalance: Number.parseFloat(previousBalance || 0)
       };
       
       await redis.set(salaryKey, salaryData);
