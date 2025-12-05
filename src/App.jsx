@@ -1318,31 +1318,45 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col md:flex-row">
       {/* Navigation Sidebar */}
-      <nav className="bg-white border-r border-slate-200 w-full md:w-20 lg:w-64 flex-shrink-0 flex flex-row md:flex-col justify-between md:justify-start z-10 sticky top-0 h-auto md:h-screen">
-        <div className="p-4 lg:p-6 flex items-center justify-between lg:justify-start gap-3 border-b border-slate-100">
-           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">
-               B
-             </div>
-             <span className="hidden lg:block font-bold text-xl text-slate-800 tracking-tight">BachEx</span>
-           </div>
-           {/* User info and logout */}
-           <div className="hidden lg:flex items-center gap-2 ml-auto">
-             <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg">
-               <User size={16} className="text-slate-600" />
-               <span className="text-sm font-medium text-slate-700">{user?.name}</span>
-             </div>
-             <button
-               onClick={logout}
-               className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-               title="Logout"
-             >
-               <LogOut size={18} />
-             </button>
-           </div>
+      <nav className="bg-white border-r border-slate-200 w-full md:w-20 lg:w-72 flex-shrink-0 flex flex-row md:flex-col justify-between md:justify-start z-10 sticky top-0 h-auto md:h-screen">
+        {/* Header with Logo and User Info */}
+        <div className="w-full border-b border-slate-100">
+          {/* Logo Section */}
+          <div className="p-4 lg:p-6 flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">
+              B
+            </div>
+            <div className="hidden lg:block">
+              <h1 className="font-bold text-xl text-slate-800 tracking-tight">BachEx</h1>
+              <p className="text-xs text-slate-500">Expense Manager</p>
+            </div>
+          </div>
+          
+          {/* User Profile Section - Desktop */}
+          <div className="hidden lg:block px-4 pb-4">
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-800 truncate">{user?.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-lg transition-all border border-slate-200 hover:border-red-200 font-medium text-sm shadow-sm"
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
         </div>
         
-        <div className="flex-1 p-2 space-y-1 flex flex-row md:flex-col justify-around overflow-x-auto">
+        {/* Navigation Menu */}
+        <div className="flex-1 p-3 lg:p-4 space-y-2 flex flex-row md:flex-col justify-around overflow-x-auto">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { id: 'transactions', icon: Table, label: 'Transactions' },
@@ -1353,16 +1367,37 @@ export default function App() {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col lg:flex-row items-center lg:gap-3 p-3 lg:px-4 rounded-xl transition-all duration-200 group ${
+              className={`flex flex-col lg:flex-row items-center lg:gap-3 p-3 lg:px-4 lg:py-3 rounded-xl transition-all duration-200 group relative ${
                 activeTab === item.id 
-                ? 'bg-indigo-50 text-indigo-600 font-medium' 
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 font-semibold shadow-sm border border-indigo-100' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
               }`}
             >
-              <item.icon size={22} className={`transition-transform duration-200 ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
-              <span className="text-[10px] lg:text-sm mt-1 lg:mt-0 font-medium">{item.label}</span>
+              {activeTab === item.id && (
+                <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-600 rounded-r-full" />
+              )}
+              <item.icon 
+                size={22} 
+                className={`transition-transform duration-200 ${
+                  activeTab === item.id ? 'scale-110' : 'group-hover:scale-105'
+                }`} 
+              />
+              <span className="text-[10px] lg:text-sm mt-1 lg:mt-0 font-medium whitespace-nowrap">
+                {item.label}
+              </span>
             </button>
           ))}
+        </div>
+        
+        {/* Mobile User Menu */}
+        <div className="lg:hidden p-3 border-t border-slate-100">
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all font-medium text-sm"
+          >
+            <LogOut size={16} />
+            <span>Logout</span>
+          </button>
         </div>
       </nav>
 
