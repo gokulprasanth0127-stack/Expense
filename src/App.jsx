@@ -259,66 +259,66 @@ export default function App() {
   // --- Views ---
 
   const Dashboard = () => (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500">
       {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-none shadow-lg shadow-emerald-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <Card className="p-4 md:p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-none shadow-lg shadow-emerald-200">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-emerald-100 text-sm font-medium mb-1">Current Balance</p>
-              <h3 className="text-3xl font-bold">₹{summary.netBalance.toFixed(2)}</h3>
+              <p className="text-emerald-100 text-xs md:text-sm font-medium mb-1">Current Balance</p>
+              <h3 className="text-2xl md:text-3xl font-bold">₹{summary.netBalance.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg">
-              <Wallet size={24} className="text-white" />
+              <Wallet size={20} className="text-white md:w-6 md:h-6" />
             </div>
           </div>
-          <div className="mt-4 text-xs text-emerald-100 flex items-center gap-1">
+          <div className="mt-3 md:mt-4 text-xs text-emerald-100 flex items-center gap-1">
             <CheckCircle size={12} />
             <span>Salary - Expenses</span>
           </div>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-none shadow-lg shadow-indigo-200">
+        <Card className="p-4 md:p-6 bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-none shadow-lg shadow-indigo-200">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-indigo-100 text-sm font-medium mb-1">Monthly Salary</p>
-              <h3 className="text-3xl font-bold">₹{salary.amount.toFixed(2)}</h3>
+              <p className="text-indigo-100 text-xs md:text-sm font-medium mb-1">Monthly Salary</p>
+              <h3 className="text-2xl md:text-3xl font-bold">₹{salary.amount.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg">
-              <TrendingUp size={24} className="text-white" />
+              <TrendingUp size={20} className="text-white md:w-6 md:h-6" />
             </div>
           </div>
-          <div className="mt-4 text-xs text-indigo-100 flex items-center gap-1">
+          <div className="mt-3 md:mt-4 text-xs text-indigo-100 flex items-center gap-1">
             <Calendar size={12} />
-            <span>{salary.receivedDate ? `Received on ${salary.receivedDate}` : 'Not set'}</span>
+            <span className="truncate">{salary.receivedDate ? `Received on ${salary.receivedDate}` : 'Not set'}</span>
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
            <div className="flex justify-between items-start">
             <div>
-              <p className="text-slate-500 text-sm font-medium mb-1">Total Expenses</p>
-              <h3 className="text-3xl font-bold text-slate-800">₹{summary.totalSpentByMe.toFixed(2)}</h3>
+              <p className="text-slate-500 text-xs md:text-sm font-medium mb-1">Total Expenses</p>
+              <h3 className="text-2xl md:text-3xl font-bold text-slate-800">₹{summary.totalSpentByMe.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-slate-100 rounded-lg">
-              <DollarSign size={24} className="text-slate-600" />
+              <DollarSign size={20} className="text-slate-600 md:w-6 md:h-6" />
             </div>
           </div>
-          <p className="mt-4 text-xs text-slate-400">Your share of bills</p>
+          <p className="mt-3 md:mt-4 text-xs text-slate-400">Your share of bills</p>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <div className="flex justify-between items-center mb-4">
-             <p className="text-slate-500 text-sm font-medium">Friend Balances</p>
-             <ArrowRightLeft size={20} className="text-slate-400" />
+             <p className="text-slate-500 text-xs md:text-sm font-medium">Friend Balances</p>
+             <ArrowRightLeft size={18} className="text-slate-400 md:w-5 md:h-5" />
           </div>
-          <div className="space-y-2 max-h-24 overflow-y-auto custom-scrollbar">
+          <div className="space-y-2 max-h-20 md:max-h-24 overflow-y-auto custom-scrollbar">
             {Object.entries(summary.balances)
               .filter(([_, amount]) => Math.abs(amount) >= 1)
               .map(([friend, amount]) => (
               <div key={friend} className="flex justify-between items-center text-sm">
-                <span className="text-slate-600 font-medium">{friend}</span>
-                <div className="flex items-center gap-1">
+                <span className="text-slate-600 font-medium truncate mr-2">{friend}</span>
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <span className={`font-bold ${amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                     {amount >= 0 ? '+' : ''}{Math.round(amount)}
                   </span>
@@ -341,10 +341,10 @@ export default function App() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Pie Chart - Spending by Category */}
-        <Card className="p-6 h-96 flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Spending by Category</h3>
+        <Card className="p-4 md:p-6 h-72 md:h-96 flex flex-col">
+          <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6">Spending by Category</h3>
           {categoryData.length > 0 ? (
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
@@ -369,17 +369,17 @@ export default function App() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-sm">
               No expenses recorded yet
             </div>
           )}
         </Card>
 
         {/* Line Chart - Spending Trend */}
-        <Card className="p-6 h-96 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Spending Trend</h3>
-            <TrendingUp size={20} className="text-indigo-600" />
+        <Card className="p-4 md:p-6 h-72 md:h-96 flex flex-col">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
+            <h3 className="text-base md:text-lg font-bold text-slate-800">Spending Trend</h3>
+            <TrendingUp size={18} className="text-indigo-600 md:w-5 md:h-5" />
           </div>
           {timelineData.length > 0 ? (
             <div className="flex-1 min-h-0">
@@ -388,45 +388,48 @@ export default function App() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     dataKey="date" 
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 10 }}
                     stroke="#64748b"
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
                   />
                   <YAxis 
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 10 }}
                     stroke="#64748b"
                   />
                   <RechartsTooltip 
                     formatter={(value) => [`₹${value}`, 'Spent']}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="amount" 
                     stroke="#6366f1" 
-                    strokeWidth={3}
-                    dot={{ fill: '#6366f1', r: 4 }}
-                    activeDot={{ r: 6 }}
+                    strokeWidth={2}
+                    dot={{ fill: '#6366f1', r: 3 }}
+                    activeDot={{ r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-sm">
               No timeline data yet
             </div>
           )}
         </Card>
 
         {/* Bar Chart - Top Categories */}
-        <Card className="p-6 h-96 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Top Categories</h3>
-            <Calendar size={20} className="text-violet-600" />
+        <Card className="p-4 md:p-6 h-72 md:h-96 flex flex-col">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
+            <h3 className="text-base md:text-lg font-bold text-slate-800">Top Categories</h3>
+            <Calendar size={18} className="text-violet-600 md:w-5 md:h-5" />
           </div>
           {topCategoriesData.length > 0 ? (
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topCategoriesData} layout="vertical" margin={{ left: 20, right: 20 }}>
+                <BarChart data={topCategoriesData} layout="vertical" margin={{ left: 20, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     type="number" 
@@ -1316,93 +1319,138 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col md:flex-row">
-      {/* Navigation Sidebar */}
-      <nav className="bg-white border-r border-slate-200 w-full md:w-20 lg:w-72 flex-shrink-0 flex flex-row md:flex-col justify-between md:justify-start z-10 sticky top-0 h-auto md:h-screen">
-        {/* Header with Logo and User Info */}
-        <div className="w-full border-b border-slate-100">
-          {/* Logo Section */}
-          <div className="p-4 lg:p-6 flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
+      {/* Mobile Header - Only visible on mobile */}
+      <div className="md:hidden bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
               B
             </div>
-            <div className="hidden lg:block">
-              <h1 className="font-bold text-xl text-slate-800 tracking-tight">BachEx</h1>
-              <p className="text-xs text-slate-500">Expense Manager</p>
+            <div>
+              <h1 className="font-bold text-lg text-slate-800">BachEx</h1>
+              <p className="text-xs text-slate-500">{user?.name}</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Logout"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
+        {/* Desktop Navigation Sidebar */}
+        <nav className="hidden md:flex bg-white border-r border-slate-200 w-20 lg:w-72 flex-shrink-0 flex-col z-10">
+          {/* Header with Logo and User Info */}
+          <div className="border-b border-slate-100">
+            {/* Logo Section */}
+            <div className="p-4 lg:p-6 flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">
+                B
+              </div>
+              <div className="hidden lg:block">
+                <h1 className="font-bold text-xl text-slate-800 tracking-tight">BachEx</h1>
+                <p className="text-xs text-slate-500">Expense Manager</p>
+              </div>
+            </div>
+            
+            {/* User Profile Section - Desktop */}
+            <div className="hidden lg:block px-4 pb-4">
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                    {user?.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-800 truncate">{user?.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-lg transition-all border border-slate-200 hover:border-red-200 font-medium text-sm shadow-sm"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              </div>
             </div>
           </div>
           
-          {/* User Profile Section - Desktop */}
-          <div className="hidden lg:block px-4 pb-4">
-            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                  {user?.name?.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-800 truncate">{user?.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                </div>
-              </div>
+          {/* Navigation Menu - Desktop */}
+          <div className="flex-1 p-3 lg:p-4 space-y-2 flex flex-col overflow-y-auto">
+            {[
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+              { id: 'transactions', icon: Table, label: 'Transactions' },
+              { id: 'salary', icon: Wallet, label: 'Salary' },
+              { id: 'friends', icon: Users, label: 'Friends' },
+              { id: 'settlements', icon: Calculator, label: 'Settlements' }
+            ].map(item => (
               <button
-                onClick={logout}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-lg transition-all border border-slate-200 hover:border-red-200 font-medium text-sm shadow-sm"
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex flex-col lg:flex-row items-center justify-center lg:justify-start lg:gap-3 p-3 lg:px-4 lg:py-3 rounded-xl transition-all duration-200 group relative ${
+                  activeTab === item.id 
+                  ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 font-semibold shadow-sm border border-indigo-100' 
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                }`}
               >
-                <LogOut size={16} />
-                <span>Logout</span>
+                {activeTab === item.id && (
+                  <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-600 rounded-r-full" />
+                )}
+                <item.icon 
+                  size={22} 
+                  className={`transition-transform duration-200 ${
+                    activeTab === item.id ? 'scale-110' : 'group-hover:scale-105'
+                  }`} 
+                />
+                <span className="text-[10px] lg:text-sm mt-1 lg:mt-0 font-medium whitespace-nowrap">
+                  {item.label}
+                </span>
               </button>
-            </div>
+            ))}
           </div>
-        </div>
-        
-        {/* Navigation Menu */}
-        <div className="flex-1 p-3 lg:p-4 space-y-2 flex flex-row md:flex-col justify-around overflow-x-auto">
-          {[
-            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { id: 'transactions', icon: Table, label: 'Transactions' },
-            { id: 'salary', icon: Wallet, label: 'Salary' },
-            { id: 'friends', icon: Users, label: 'Friends' },
-            { id: 'settlements', icon: Calculator, label: 'Settlements' }
-          ].map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col lg:flex-row items-center lg:gap-3 p-3 lg:px-4 lg:py-3 rounded-xl transition-all duration-200 group relative ${
-                activeTab === item.id 
-                ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 font-semibold shadow-sm border border-indigo-100' 
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              {activeTab === item.id && (
-                <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-600 rounded-r-full" />
-              )}
-              <item.icon 
-                size={22} 
-                className={`transition-transform duration-200 ${
-                  activeTab === item.id ? 'scale-110' : 'group-hover:scale-105'
-                }`} 
-              />
-              <span className="text-[10px] lg:text-sm mt-1 lg:mt-0 font-medium whitespace-nowrap">
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </div>
-        
-        {/* Mobile User Menu */}
-        <div className="lg:hidden p-3 border-t border-slate-100">
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all font-medium text-sm"
-          >
-            <LogOut size={16} />
-            <span>Logout</span>
-          </button>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto h-[calc(100vh-80px)] md:h-screen">
+        {/* Mobile Bottom Navigation */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-20 shadow-lg">
+          <div className="flex justify-around items-center px-2 py-2 safe-bottom">
+            {[
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
+              { id: 'transactions', icon: Table, label: 'Transactions' },
+              { id: 'salary', icon: Wallet, label: 'Salary' },
+              { id: 'friends', icon: Users, label: 'Friends' },
+              { id: 'settlements', icon: Calculator, label: 'Settle' }
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-200 min-w-[60px] ${
+                  activeTab === item.id 
+                  ? 'text-indigo-600 bg-indigo-50' 
+                  : 'text-slate-500'
+                }`}
+              >
+                <item.icon 
+                  size={22} 
+                  className={`transition-transform duration-200 ${
+                    activeTab === item.id ? 'scale-110' : ''
+                  }`} 
+                />
+                <span className="text-[10px] font-medium mt-1">
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-3 md:p-6 lg:p-8 overflow-y-auto pb-20 md:pb-8">
         {/* Migration Banner */}
         {showMigrationBanner && (
           <div className="mb-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl p-6 shadow-lg animate-in slide-in-from-top-4 duration-500">
@@ -1467,6 +1515,7 @@ export default function App() {
           </>
         )}
       </main>
+      </div>
     </div>
   );
 }
