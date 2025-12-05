@@ -15,7 +15,8 @@ import {
   Wallet,
   CheckCircle,
   TrendingUp,
-  Calendar
+  Calendar,
+  Edit
 } from 'lucide-react';
 import { transactionsAPI, friendsAPI, salaryAPI } from './utils/api';
 
@@ -145,20 +146,23 @@ export default function App() {
   const categoryData = useMemo(() => {
     const data = {};
     transactions.forEach(t => {
-      if (t.splitAmong.includes('Me')) {
-        const myShare = t.amount / t.splitAmong.length;
+      // Only include expenses (negative amounts) in category breakdown
+      if (t.splitAmong.includes('Me') && t.amount < 0) {
+        const myShare = Math.abs(t.amount) / t.splitAmong.length;
         data[t.category] = (data[t.category] || 0) + myShare;
       }
     });
     return Object.keys(data).map(key => ({ name: key, value: Math.round(data[key]) }))
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => b.value - a.value)
+      .filter(item => item.value > 0); // Remove zero values
   }, [transactions]);
 
   const timelineData = useMemo(() => {
     const data = {};
     transactions.forEach(t => {
-      if (t.splitAmong.includes('Me')) {
-        const myShare = t.amount / t.splitAmong.length;
+      // Only include expenses (negative amounts) in timeline
+      if (t.splitAmong.includes('Me') && t.amount < 0) {
+        const myShare = Math.abs(t.amount) / t.splitAmong.length;
         data[t.date] = (data[t.date] || 0) + myShare;
       }
     });
@@ -413,6 +417,7 @@ export default function App() {
       transactionType: 'expense' // 'income' or 'expense'
     });
 
+    const [editingId, setEditingId] = useState(null);
     const [showEggTracker, setShowEggTracker] = useState(false);
     const [eggForm, setEggForm] = useState({
       dateBought: new Date().toISOString().split('T')[0],
@@ -480,6 +485,38 @@ export default function App() {
       }));
     };
 
+    const handleEdit = (transaction) => {
+      setEditingId(transaction.id);
+      setForm({
+        date: transaction.date,
+        desc: transaction.desc,
+        amount: Math.abs(transaction.amount).toString(),
+        category: transaction.category,
+        paidBy: transaction.paidBy,
+        splitAmong: transaction.splitAmong,
+        splitType: transaction.splitType || 'equal',
+        customSplits: transaction.customSplits || {},
+        transactionType: transaction.amount > 0 ? 'income' : 'expense'
+      });
+      // Scroll to form
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCancelEdit = () => {
+      setEditingId(null);
+      setForm({
+        date: new Date().toISOString().split('T')[0],
+        desc: '',
+        amount: '',
+        category: categories[0] || 'General',
+        paidBy: 'Me',
+        splitAmong: ['Me'],
+        splitType: 'equal',
+        customSplits: {},
+        transactionType: 'expense'
+      });
+    };
+
     const handleSubmit = async () => {
       if (!form.desc || !form.amount) return;
       try {
@@ -497,12 +534,33 @@ export default function App() {
           splitType: form.splitType,
           customSplits: form.splitType === 'custom' ? form.customSplits : null
         };
-        const newTrans = await transactionsAPI.create(transactionData);
-        setTransactions([...transactions, newTrans]);
-        setForm({ ...form, desc: '', amount: '', customSplits: {} });
+
+        if (editingId) {
+          // Update existing transaction
+          await transactionsAPI.delete(editingId);
+          const updatedTrans = await transactionsAPI.create(transactionData);
+          setTransactions(transactions.map(t => t.id === editingId ? updatedTrans : t));
+          setEditingId(null);
+        } else {
+          // Create new transaction
+          const newTrans = await transactionsAPI.create(transactionData);
+          setTransactions([...transactions, newTrans]);
+        }
+        
+        setForm({ 
+          date: new Date().toISOString().split('T')[0],
+          desc: '', 
+          amount: '', 
+          category: categories[0] || 'General',
+          paidBy: 'Me',
+          splitAmong: ['Me'],
+          splitType: 'equal',
+          customSplits: {},
+          transactionType: 'expense'
+        });
       } catch (error) {
-        console.error('Failed to add transaction:', error);
-        alert('Failed to add transaction. Please try again.');
+        console.error('Failed to save transaction:', error);
+        alert('Failed to save transaction. Please try again.');
       }
     };
 
@@ -670,8 +728,18 @@ export default function App() {
         <div className="lg:col-span-1 space-y-6">
           <Card className="p-6 sticky top-6">
             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Plus className="text-indigo-600" size={20}/> New Transaction
+              <Plus className="text-indigo-600" size={20}/> 
+              {editingId ? 'Edit Transaction' : 'New Transaction'}
             </h3>
+            
+            {editingId && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+                <span className="text-sm text-amber-800">Editing transaction...</span>
+                <button onClick={handleCancelEdit} className="text-xs text-amber-600 hover:text-amber-800 font-medium">
+                  Cancel
+                </button>
+              </div>
+            )}
             
             <div className="space-y-4">
               <div>
@@ -774,7 +842,9 @@ export default function App() {
                 </div>
               )}
 
-              <Button onClick={handleSubmit} className="w-full justify-center mt-4">Add Transaction</Button>
+              <Button onClick={handleSubmit} className="w-full justify-center mt-4">
+                {editingId ? 'Update Transaction' : 'Add Transaction'}
+              </Button>
             </div>
           </Card>
         </div>
@@ -816,17 +886,30 @@ export default function App() {
                           {isIncome ? '+' : ''}₹{Math.abs(t.amount)}
                         </td>
                         <td className="p-4 text-right">
-                          <button onClick={async () => {
-                            try {
-                              await transactionsAPI.delete(t.id);
-                              setTransactions(transactions.filter(x => x.id !== t.id));
-                            } catch (error) {
-                              console.error('Failed to delete transaction:', error);
-                              alert('Failed to delete transaction. Please try again.');
-                            }
-                          }} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
-                            <Trash2 size={16} />
-                          </button>
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => handleEdit(t)}
+                              className="text-slate-400 hover:text-indigo-600 transition-colors p-1 hover:bg-indigo-50 rounded"
+                              title="Edit transaction"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await transactionsAPI.delete(t.id);
+                                  setTransactions(transactions.filter(x => x.id !== t.id));
+                                } catch (error) {
+                                  console.error('Failed to delete transaction:', error);
+                                  alert('Failed to delete transaction. Please try again.');
+                                }
+                              }} 
+                              className="text-slate-400 hover:text-red-500 transition-colors p-1 hover:bg-red-50 rounded"
+                              title="Delete transaction"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
