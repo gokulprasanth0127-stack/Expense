@@ -102,6 +102,8 @@ export default function App() {
     let totalSpentByMe = 0; 
     let totalPaidOut = 0;
     let totalIncome = 0;
+    let totalOwedToMe = 0; // Money friends owe me (reduces my cash)
+    let totalIOwe = 0; // Money I owe friends (I still have this cash)
     const balances = {};
     friends.forEach(f => balances[f] = 0);
 
@@ -126,21 +128,24 @@ export default function App() {
       t.splitAmong.forEach(person => {
         if (person === t.paidBy) return; 
 
-        // I paid, person owes me
+        // I paid, person owes me (this reduces my current balance since I paid out cash)
         if (t.paidBy === 'Me' && person !== 'Me') {
           balances[person] = (balances[person] || 0) + amountPerPerson;
+          totalOwedToMe += amountPerPerson;
         }
-        // Person paid, I owe person
+        // Person paid, I owe person (I still have this cash in hand)
         else if (person === t.paidBy && t.splitAmong.includes('Me')) {
            balances[person] = (balances[person] || 0) - amountPerPerson;
+           totalIOwe += amountPerPerson;
         }
       });
     });
 
-    // Calculate balance after salary and expenses
-    const netBalance = salary.amount + totalIncome - totalSpentByMe;
+    // Calculate balance: Salary + Income - Money I spent - Money friends owe me (already paid out)
+    // But add back money I owe to friends (I still have that cash)
+    const netBalance = salary.amount + totalIncome - totalPaidOut + totalIOwe;
 
-    return { totalSpentByMe, totalPaidOut, totalIncome, balances, netBalance };
+    return { totalSpentByMe, totalPaidOut, totalIncome, balances, netBalance, totalOwedToMe, totalIOwe };
   }, [transactions, friends, salary]);
 
   const categoryData = useMemo(() => {
@@ -180,9 +185,9 @@ export default function App() {
       .map(([name, balance]) => ({
         name,
         owesYou: balance > 0 ? Math.round(balance) : 0,
-        youOwe: balance < 0 ? Math.round(Math.abs(balance)) : 0
+        youOwe: balance < 0 ? Math.round(Math.abs(balance)) : 0 // Use absolute value for side-by-side bars
       }))
-      .filter(item => item.owesYou > 0 || item.youOwe > 0); // Only show non-zero balances
+      .filter(item => item.owesYou > 0 || item.youOwe > 0); // Filter using positive values
   }, [summary.balances]);
 
   const topCategoriesData = useMemo(() => {
@@ -361,15 +366,19 @@ export default function App() {
           {topCategoriesData.length > 0 ? (
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topCategoriesData} layout="horizontal">
+                <BarChart data={topCategoriesData} layout="vertical" margin={{ left: 20, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} stroke="#64748b" />
+                  <XAxis 
+                    type="number" 
+                    tick={{ fontSize: 12 }} 
+                    stroke="#64748b"
+                  />
                   <YAxis 
                     type="category" 
                     dataKey="name" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
-                    width={80}
+                    width={100}
                   />
                   <RechartsTooltip 
                     formatter={(value) => [`₹${value}`, 'Spent']}
@@ -377,7 +386,7 @@ export default function App() {
                   />
                   <Bar 
                     dataKey="value" 
-                    fill="#8b5cf6"
+                    fill="#6366f1"
                     radius={[0, 8, 8, 0]}
                   />
                 </BarChart>
@@ -399,34 +408,42 @@ export default function App() {
           {friendBalancesData.length > 0 ? (
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={friendBalancesData} layout="horizontal">
+                <BarChart data={friendBalancesData} layout="vertical" margin={{ left: 10, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} stroke="#64748b" />
+                  <XAxis 
+                    type="number" 
+                    tick={{ fontSize: 12 }} 
+                    stroke="#64748b"
+                    label={{ value: 'Amount (₹)', position: 'insideBottom', offset: -5, fontSize: 12 }}
+                  />
                   <YAxis 
                     type="category" 
                     dataKey="name" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
-                    width={100}
+                    width={80}
                   />
                   <RechartsTooltip 
-                    formatter={(value, name) => [
-                      `₹${value}`, 
-                      name === 'owesYou' ? 'Owes You' : 'You Owe'
-                    ]}
+                    formatter={(value, name) => {
+                      const absValue = Math.abs(value);
+                      return [
+                        `₹${absValue}`, 
+                        name === 'youOwe' ? 'You Owe' : 'Owes You'
+                      ];
+                    }}
                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Bar 
+                    dataKey="youOwe" 
+                    fill="#ef4444"
+                    radius={[8, 0, 0, 8]}
+                    name="You Owe"
                   />
                   <Bar 
                     dataKey="owesYou" 
                     fill="#10b981"
                     radius={[0, 8, 8, 0]}
                     name="Owes You"
-                  />
-                  <Bar 
-                    dataKey="youOwe" 
-                    fill="#ef4444"
-                    radius={[0, 8, 8, 0]}
-                    name="You Owe"
                   />
                 </BarChart>
               </ResponsiveContainer>
