@@ -289,21 +289,28 @@ export default function App() {
     });
     
     // Convert to array and sort by month
-    const statements = Object.values(monthlyData)
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .map((month, index, arr) => {
-        const prevBalance = index === 0 ? (salary.previousBalance || 0) : arr[index - 1].endingBalance;
-        const monthlySalary = salary.amount; // In real app, you'd track salary per month
-        const endingBalance = prevBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
-        
-        return {
-          ...month,
-          salary: monthlySalary,
-          startingBalance: prevBalance,
-          endingBalance: endingBalance,
-          savings: endingBalance - prevBalance
-        };
-      });
+    const sortedMonths = Object.values(monthlyData)
+      .sort((a, b) => a.month.localeCompare(b.month));
+    
+    // Calculate running balances
+    let runningBalance = salary.previousBalance || 0;
+    const statements = sortedMonths.map((month) => {
+      const monthlySalary = salary.amount || 0;
+      const startingBalance = runningBalance;
+      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
+      const savings = endingBalance - startingBalance;
+      
+      // Update running balance for next month
+      runningBalance = endingBalance;
+      
+      return {
+        ...month,
+        salary: monthlySalary,
+        startingBalance: startingBalance,
+        endingBalance: endingBalance,
+        savings: savings
+      };
+    });
     
     return statements;
   }, [transactions, salary]);
