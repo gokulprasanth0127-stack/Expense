@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import jwt from 'jsonwebtoken';
 
 // Initialize Redis client
 const redis = new Redis({
@@ -6,18 +7,42 @@ const redis = new Redis({
   token: process.env.expense_KV_REST_API_TOKEN,
 });
 
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+
+// Helper to get userId from token
+function getUserFromRequest(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return decoded.userId;
+  } catch (error) {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  const { userId = 'default_user' } = req.query;
+  // Get userId from authentication token
+  const userId = getUserFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized - Please log in' });
+  }
+
   const transactionsKey = `user:${userId}:transactions`;
   const counterKey = `user:${userId}:transaction_counter`;
 

@@ -16,9 +16,14 @@ import {
   CheckCircle,
   TrendingUp,
   Calendar,
-  Edit
+  Edit,
+  LogOut,
+  User
 } from 'lucide-react';
 import { transactionsAPI, friendsAPI, salaryAPI } from './utils/api';
+import { useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
+import Register from './components/Register';
 
 // --- Shared UI Components ---
 
@@ -55,8 +60,12 @@ const Badge = ({ children, color = "blue" }) => {
 // --- Main Application ---
 
 export default function App() {
+  const { user, loading: authLoading, logout, isAuthenticated, token } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
+  const [showMigrationBanner, setShowMigrationBanner] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   
   // --- State Management ---
   const [friends, setFriends] = useState([]);
@@ -72,6 +81,11 @@ export default function App() {
 
   // Load data from backend on mount
   useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       try {
         setLoading(true);
@@ -83,19 +97,65 @@ export default function App() {
         setFriends(friendsData.length > 0 ? friendsData : ['Rahul', 'Amit', 'Sneha']);
         setTransactions(transactionsData);
         setSalary(salaryData);
+        
+        // Show migration banner if no data found
+        if (transactionsData.length === 0 && friendsData.length === 0 && (!salaryData || salaryData.amount === 0)) {
+          setShowMigrationBanner(true);
+        }
       } catch (error) {
         console.error('Failed to load data:', error);
-        // Fallback to localStorage if API fails
-        const savedFriends = localStorage.getItem('node_friends');
-        const savedTransactions = localStorage.getItem('node_transactions');
-        if (savedFriends) setFriends(JSON.parse(savedFriends));
-        if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+        // If unauthorized, logout
+        if (error.message.includes('Unauthorized')) {
+          logout();
+        }
       } finally {
         setLoading(false);
       }
     };
     loadData();
-  }, []);
+  }, [isAuthenticated]);
+
+  // Migration function
+  const handleMigrateData = async () => {
+    if (!confirm('This will copy all data from default_user to your account. Continue?')) {
+      return;
+    }
+
+    setMigrating(true);
+    try {
+      const response = await fetch('/api/migrate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Migration failed');
+      }
+
+      alert(`✅ Migration successful!\n\nMigrated:\n- ${result.migrated.transactions} transactions\n- ${result.migrated.friends} friends\n- Salary: ${result.migrated.salary ? 'Yes' : 'No'}`);
+      
+      setShowMigrationBanner(false);
+      
+      // Reload data
+      const [friendsData, transactionsData, salaryData] = await Promise.all([
+        friendsAPI.getAll(),
+        transactionsAPI.getAll(),
+        salaryAPI.get()
+      ]);
+      setFriends(friendsData);
+      setTransactions(transactionsData);
+      setSalary(salaryData);
+    } catch (error) {
+      console.error('Migration failed:', error);
+      alert('❌ Migration failed: ' + error.message);
+    } finally {
+      setMigrating(false);
+    }
+  };
 
   // --- Core Calculation Logic ---
   const summary = useMemo(() => {
@@ -1234,15 +1294,52 @@ export default function App() {
     </div>
   );
 
+  // Show auth loading screen
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg font-semibold">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login/register if not authenticated
+  if (!isAuthenticated) {
+    return showRegister ? (
+      <Register onSwitchToLogin={() => setShowRegister(false)} />
+    ) : (
+      <Login onSwitchToRegister={() => setShowRegister(true)} />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col md:flex-row">
       {/* Navigation Sidebar */}
       <nav className="bg-white border-r border-slate-200 w-full md:w-20 lg:w-64 flex-shrink-0 flex flex-row md:flex-col justify-between md:justify-start z-10 sticky top-0 h-auto md:h-screen">
-        <div className="p-4 lg:p-6 flex items-center justify-center lg:justify-start gap-3 border-b border-slate-100">
-           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">
-             B
+        <div className="p-4 lg:p-6 flex items-center justify-between lg:justify-start gap-3 border-b border-slate-100">
+           <div className="flex items-center gap-3">
+             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">
+               B
+             </div>
+             <span className="hidden lg:block font-bold text-xl text-slate-800 tracking-tight">BachEx</span>
            </div>
-           <span className="hidden lg:block font-bold text-xl text-slate-800 tracking-tight">BachEx</span>
+           {/* User info and logout */}
+           <div className="hidden lg:flex items-center gap-2 ml-auto">
+             <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg">
+               <User size={16} className="text-slate-600" />
+               <span className="text-sm font-medium text-slate-700">{user?.name}</span>
+             </div>
+             <button
+               onClick={logout}
+               className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+               title="Logout"
+             >
+               <LogOut size={18} />
+             </button>
+           </div>
         </div>
         
         <div className="flex-1 p-2 space-y-1 flex flex-row md:flex-col justify-around overflow-x-auto">
@@ -1271,6 +1368,43 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto h-[calc(100vh-80px)] md:h-screen">
+        {/* Migration Banner */}
+        {showMigrationBanner && (
+          <div className="mb-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl p-6 shadow-lg animate-in slide-in-from-top-4 duration-500">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+                  🎉 Welcome to your new account!
+                </h3>
+                <p className="text-white/90 text-sm mb-4">
+                  We noticed you don't have any data yet. Would you like to migrate your existing production data to this account?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleMigrateData}
+                    disabled={migrating}
+                    className="bg-white text-orange-600 px-4 py-2 rounded-lg font-semibold hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {migrating ? 'Migrating...' : '✨ Migrate My Data'}
+                  </button>
+                  <button
+                    onClick={() => setShowMigrationBanner(false)}
+                    className="bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMigrationBanner(false)}
+                className="text-white/80 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         <header className="mb-8 flex justify-between items-end">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-slate-800 capitalize tracking-tight">{activeTab}</h1>

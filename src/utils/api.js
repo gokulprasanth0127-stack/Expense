@@ -1,37 +1,57 @@
 // API utility functions for backend communication
+import Cookies from 'js-cookie';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? '/api' 
   : 'http://localhost:3000/api';
 
-const USER_ID = 'default_user'; // Simple user identification - can be enhanced with auth later
+// Helper to get auth headers
+const getAuthHeaders = () => {
+  const token = Cookies.get('auth_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  };
+};
 
 // Transactions API
 export const transactionsAPI = {
   // Get all transactions
   getAll: async () => {
-    const response = await fetch(`${API_BASE_URL}/transactions?userId=${USER_ID}`);
-    if (!response.ok) throw new Error('Failed to fetch transactions');
+    const response = await fetch(`${API_BASE_URL}/transactions`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch transactions');
+    }
     return response.json();
   },
 
   // Create new transaction
   create: async (transaction) => {
-    const response = await fetch(`${API_BASE_URL}/transactions?userId=${USER_ID}`, {
+    const response = await fetch(`${API_BASE_URL}/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(transaction)
     });
-    if (!response.ok) throw new Error('Failed to create transaction');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create transaction');
+    }
     return response.json();
   },
 
   // Delete transaction
   delete: async (id) => {
-    const response = await fetch(`${API_BASE_URL}/transactions?userId=${USER_ID}&id=${id}`, {
-      method: 'DELETE'
+    const response = await fetch(`${API_BASE_URL}/transactions?id=${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
-    if (!response.ok) throw new Error('Failed to delete transaction');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete transaction');
+    }
     return response.json();
   }
 };
@@ -40,16 +60,21 @@ export const transactionsAPI = {
 export const friendsAPI = {
   // Get all friends
   getAll: async () => {
-    const response = await fetch(`${API_BASE_URL}/friends?userId=${USER_ID}`);
-    if (!response.ok) throw new Error('Failed to fetch friends');
+    const response = await fetch(`${API_BASE_URL}/friends`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch friends');
+    }
     return response.json();
   },
 
   // Add new friend
   create: async (name) => {
-    const response = await fetch(`${API_BASE_URL}/friends?userId=${USER_ID}`, {
+    const response = await fetch(`${API_BASE_URL}/friends`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ name })
     });
     if (!response.ok) {
@@ -61,10 +86,14 @@ export const friendsAPI = {
 
   // Delete friend
   delete: async (name) => {
-    const response = await fetch(`${API_BASE_URL}/friends?userId=${USER_ID}&name=${encodeURIComponent(name)}`, {
-      method: 'DELETE'
+    const response = await fetch(`${API_BASE_URL}/friends?name=${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
-    if (!response.ok) throw new Error('Failed to delete friend');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete friend');
+    }
     return response.json();
   }
 };
@@ -73,28 +102,40 @@ export const friendsAPI = {
 export const salaryAPI = {
   // Get salary data
   get: async () => {
-    const response = await fetch(`${API_BASE_URL}/salary?userId=${USER_ID}`);
-    if (!response.ok) throw new Error('Failed to fetch salary');
+    const response = await fetch(`${API_BASE_URL}/salary`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch salary');
+    }
     return response.json();
   },
 
   // Set or update salary
   update: async (amount, receivedDate) => {
-    const response = await fetch(`${API_BASE_URL}/salary?userId=${USER_ID}`, {
+    const response = await fetch(`${API_BASE_URL}/salary`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ amount, receivedDate })
     });
-    if (!response.ok) throw new Error('Failed to update salary');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update salary');
+    }
     return response.json();
   },
 
   // Clear salary data
   clear: async () => {
-    const response = await fetch(`${API_BASE_URL}/salary?userId=${USER_ID}`, {
-      method: 'DELETE'
+    const response = await fetch(`${API_BASE_URL}/salary`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
-    if (!response.ok) throw new Error('Failed to clear salary');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to clear salary');
+    }
     return response.json();
   }
 };
