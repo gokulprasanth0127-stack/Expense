@@ -59,7 +59,7 @@ export default function App() {
   
   // --- State Management ---
   const [friends, setFriends] = useState([]);
-  const [categories] = useState([
+  const [categories, setCategories] = useState([
     'Salary', 'Rent', 'EMI', 'Wifi', 'Recharge', 'Groceries', 'Snacks', 'Gym', 'Help',
     'Public Transport', 'Fuel', 'Vehicle Maintenance', 'Tea/Coffee', 'Dinner',
     'Lunch', 'Breakfast', 'Clothing', 'Movies', 'Sports', 'Medicine', 'Eggs',
@@ -67,6 +67,7 @@ export default function App() {
   ]);
   const [transactions, setTransactions] = useState([]);
   const [salary, setSalary] = useState({ amount: 0, receivedDate: null });
+  const [eggRecords, setEggRecords] = useState([]);
 
   // Load data from backend on mount
   useEffect(() => {
@@ -407,18 +408,28 @@ export default function App() {
       category: categories[0] || 'General',
       paidBy: 'Me',
       splitAmong: ['Me'],
-      type: 'expense' // 'income' or 'expense'
+      splitType: 'equal', // 'equal' or 'custom'
+      customSplits: {}, // { personName: amount }
+      transactionType: 'expense' // 'income' or 'expense'
     });
 
-    // Auto-detect income/expense based on category
-    const isIncomeCategory = ['Salary'].includes(form.category);
+    const [showEggTracker, setShowEggTracker] = useState(false);
+    const [eggForm, setEggForm] = useState({
+      dateBought: new Date().toISOString().split('T')[0],
+      boughtBy: 'Me',
+      eggsEaten: '',
+      pricePerEgg: ''
+    });
+
+    const [showCategoryManager, setShowCategoryManager] = useState(false);
+    const [newCategory, setNewCategory] = useState('');
 
     const handleSubmit = async () => {
       if (!form.desc || !form.amount) return;
       try {
-        // Convert amount: positive for income, negative for expense
+        // Convert amount based on transaction type
         const amountValue = Number.parseFloat(form.amount);
-        const finalAmount = isIncomeCategory ? Math.abs(amountValue) : -Math.abs(amountValue);
+        const finalAmount = form.transactionType === 'income' ? Math.abs(amountValue) : -Math.abs(amountValue);
         
         const transactionData = {
           date: form.date,
@@ -426,11 +437,13 @@ export default function App() {
           amount: finalAmount,
           category: form.category,
           paidBy: form.paidBy,
-          splitAmong: form.splitAmong
+          splitAmong: form.splitAmong,
+          splitType: form.splitType,
+          customSplits: form.splitType === 'custom' ? form.customSplits : null
         };
         const newTrans = await transactionsAPI.create(transactionData);
         setTransactions([...transactions, newTrans]);
-        setForm({ ...form, desc: '', amount: '' }); // Keep date/cat/split same for speed
+        setForm({ ...form, desc: '', amount: '', customSplits: {} });
       } catch (error) {
         console.error('Failed to add transaction:', error);
         alert('Failed to add transaction. Please try again.');
@@ -439,14 +452,164 @@ export default function App() {
 
     const toggleSplit = (person) => {
       if (form.splitAmong.includes(person)) {
-        if (form.splitAmong.length > 1) setForm(p => ({ ...p, splitAmong: p.splitAmong.filter(x => x !== person) }));
+        if (form.splitAmong.length > 1) {
+          const newSplitAmong = form.splitAmong.filter(x => x !== person);
+          const newCustomSplits = { ...form.customSplits };
+          delete newCustomSplits[person];
+          setForm(p => ({ ...p, splitAmong: newSplitAmong, customSplits: newCustomSplits }));
+        }
       } else {
         setForm(p => ({ ...p, splitAmong: [...p.splitAmong, person] }));
       }
     };
 
+    const handleCustomSplitChange = (person, value) => {
+      setForm(p => ({
+        ...p,
+        customSplits: { ...p.customSplits, [person]: Number.parseFloat(value) || 0 }
+      }));
+    };
+
+    const handleAddEgg = () => {
+      if (!eggForm.eggsEaten || !eggForm.pricePerEgg) return;
+      const totalPrice = Number.parseFloat(eggForm.eggsEaten) * Number.parseFloat(eggForm.pricePerEgg);
+      const newEgg = {
+        id: Date.now(),
+        dateBought: eggForm.dateBought,
+        boughtBy: eggForm.boughtBy,
+        eggsEaten: Number.parseFloat(eggForm.eggsEaten),
+        pricePerEgg: Number.parseFloat(eggForm.pricePerEgg),
+        totalPrice: totalPrice
+      };
+      setEggRecords([...eggRecords, newEgg]);
+      setEggForm({ ...eggForm, eggsEaten: '', pricePerEgg: '' });
+    };
+
+    const handleAddCategory = () => {
+      if (!newCategory || categories.includes(newCategory)) return;
+      setCategories([...categories, newCategory]);
+      setNewCategory('');
+    };
+
+    const handleRemoveCategory = (cat) => {
+      if (categories.length <= 1) return;
+      setCategories(categories.filter(c => c !== cat));
+    };
+
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+        {/* Top Buttons */}
+        <div className="flex gap-2">
+          <Button onClick={() => setShowEggTracker(!showEggTracker)} variant="secondary">
+            {showEggTracker ? 'Hide' : 'Show'} Egg Tracker 🥚
+          </Button>
+          <Button onClick={() => setShowCategoryManager(!showCategoryManager)} variant="secondary">
+            Manage Categories
+          </Button>
+        </div>
+
+        {/* Category Manager */}
+        {showCategoryManager && (
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Manage Categories</h3>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={newCategory}
+                onChange={e => setNewCategory(e.target.value)}
+                placeholder="New category name"
+                className="flex-1 p-2 border border-slate-300 rounded-lg"
+                onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+              />
+              <Button onClick={handleAddCategory}>Add</Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => (
+                <div key={cat} className="flex items-center gap-1 px-3 py-1 bg-slate-100 rounded-full">
+                  <span className="text-sm">{cat}</span>
+                  <button onClick={() => handleRemoveCategory(cat)} className="text-red-500 hover:text-red-700">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Egg Tracker */}
+        {showEggTracker && (
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">🥚 Egg Tracker</h3>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+              <input
+                type="date"
+                value={eggForm.dateBought}
+                onChange={e => setEggForm({...eggForm, dateBought: e.target.value})}
+                className="p-2 border border-slate-300 rounded-lg"
+              />
+              <select
+                value={eggForm.boughtBy}
+                onChange={e => setEggForm({...eggForm, boughtBy: e.target.value})}
+                className="p-2 border border-slate-300 rounded-lg"
+              >
+                {['Me', ...friends].map(p => <option key={p}>{p}</option>)}
+              </select>
+              <input
+                type="number"
+                value={eggForm.eggsEaten}
+                onChange={e => setEggForm({...eggForm, eggsEaten: e.target.value})}
+                placeholder="Eggs eaten"
+                className="p-2 border border-slate-300 rounded-lg"
+              />
+              <input
+                type="number"
+                value={eggForm.pricePerEgg}
+                onChange={e => setEggForm({...eggForm, pricePerEgg: e.target.value})}
+                placeholder="Price per egg"
+                className="p-2 border border-slate-300 rounded-lg"
+              />
+              <Button onClick={handleAddEgg} className="w-full">Add</Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="p-2 text-left">Date</th>
+                    <th className="p-2 text-left">Bought By</th>
+                    <th className="p-2 text-right">Eggs Eaten</th>
+                    <th className="p-2 text-right">Price/Egg</th>
+                    <th className="p-2 text-right">Total</th>
+                    <th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eggRecords.map(egg => (
+                    <tr key={egg.id} className="border-t">
+                      <td className="p-2">{egg.dateBought}</td>
+                      <td className="p-2">{egg.boughtBy}</td>
+                      <td className="p-2 text-right">{egg.eggsEaten}</td>
+                      <td className="p-2 text-right">₹{egg.pricePerEgg.toFixed(2)}</td>
+                      <td className="p-2 text-right font-bold">₹{egg.totalPrice.toFixed(2)}</td>
+                      <td className="p-2">
+                        <button
+                          onClick={() => setEggRecords(eggRecords.filter(e => e.id !== egg.id))}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {eggRecords.length === 0 && (
+                    <tr><td colSpan={6} className="p-4 text-center text-slate-400">No egg records yet</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Input Form */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="p-6 sticky top-6">
@@ -463,16 +626,28 @@ export default function App() {
                       {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
-                {isIncomeCategory && (
-                  <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-xs text-emerald-700">
-                    <TrendingUp size={14} />
-                    <span>This will be recorded as income (+)</span>
-                  </div>
-                )}
                 <input type="text" placeholder="Description (e.g. Groceries)" value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-2" />
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-slate-400">₹</span>
-                  <input type="number" placeholder="0.00" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full pl-7 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono font-medium" />
+                
+                {/* Amount with Income/Expense Toggle */}
+                <div className="flex gap-2 mb-2">
+                  <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setForm({...form, transactionType: 'expense'})}
+                      className={`px-3 py-2 text-sm font-medium transition-colors ${form.transactionType === 'expense' ? 'bg-red-500 text-white' : 'bg-slate-50 text-slate-600'}`}
+                    >
+                      - Expense
+                    </button>
+                    <button
+                      onClick={() => setForm({...form, transactionType: 'income'})}
+                      className={`px-3 py-2 text-sm font-medium transition-colors ${form.transactionType === 'income' ? 'bg-emerald-500 text-white' : 'bg-slate-50 text-slate-600'}`}
+                    >
+                      + Income
+                    </button>
+                  </div>
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-2 text-slate-400">₹</span>
+                    <input type="number" placeholder="0.00" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full pl-7 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono font-medium" />
+                  </div>
                 </div>
               </div>
 
@@ -488,7 +663,21 @@ export default function App() {
               </div>
 
               <div>
-                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Split Amongst</label>
+                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Split Type</label>
+                 <div className="flex gap-2 mb-2">
+                   <button
+                     onClick={() => setForm({...form, splitType: 'equal', customSplits: {}})}
+                     className={`flex-1 px-3 py-2 text-xs rounded-lg border transition-colors ${form.splitType === 'equal' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200'}`}
+                   >
+                     Equal Split
+                   </button>
+                   <button
+                     onClick={() => setForm({...form, splitType: 'custom'})}
+                     className={`flex-1 px-3 py-2 text-xs rounded-lg border transition-colors ${form.splitType === 'custom' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200'}`}
+                   >
+                     Custom Split
+                   </button>
+                 </div>
                  <div className="flex flex-wrap gap-2">
                     {['Me', ...friends].map(p => (
                       <button key={p} onClick={() => toggleSplit(p)} className={`px-3 py-1 text-xs rounded-full border transition-colors ${form.splitAmong.includes(p) ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-400 border-slate-200 hover:border-emerald-300'}`}>
@@ -498,7 +687,32 @@ export default function App() {
                  </div>
               </div>
 
-              <Button onClick={handleSubmit} className="w-full justify-center mt-4">Add Expense</Button>
+              {/* Custom Split Amounts */}
+              {form.splitType === 'custom' && form.splitAmong.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Custom Amounts</label>
+                  <div className="space-y-2">
+                    {form.splitAmong.map(person => (
+                      <div key={person} className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-600 w-20">{person}:</span>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          value={form.customSplits[person] || ''}
+                          onChange={e => handleCustomSplitChange(person, e.target.value)}
+                          className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                        />
+                      </div>
+                    ))}
+                    <div className="text-xs text-slate-500 mt-2">
+                      Total: ₹{Object.values(form.customSplits).reduce((sum, val) => sum + (val || 0), 0).toFixed(2)} 
+                      {form.amount && ` / ₹${form.amount}`}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={handleSubmit} className="w-full justify-center mt-4">Add Transaction</Button>
             </div>
           </Card>
         </div>
@@ -563,6 +777,7 @@ export default function App() {
              </div>
           </Card>
         </div>
+      </div>
       </div>
     );
   };
