@@ -424,6 +424,62 @@ export default function App() {
     const [showCategoryManager, setShowCategoryManager] = useState(false);
     const [newCategory, setNewCategory] = useState('');
 
+    // Smart category detection based on description keywords
+    const detectCategory = (description) => {
+      const desc = description.toLowerCase();
+      
+      // Category detection patterns
+      const categoryPatterns = {
+        'Salary': ['salary', 'income', 'wage', 'payment received'],
+        'Rent': ['rent', 'house rent', 'room rent', 'apartment'],
+        'EMI': ['emi', 'loan', 'installment', 'equated'],
+        'Wifi': ['wifi', 'internet', 'broadband', 'fiber'],
+        'Recharge': ['recharge', 'mobile recharge', 'prepaid', 'top up', 'topup'],
+        'Groceries': ['grocery', 'groceries', 'vegetables', 'fruits', 'market', 'supermarket', 'dmart', 'reliance fresh', 'big bazaar'],
+        'Snacks': ['snack', 'snacks', 'chips', 'biscuit', 'chocolate', 'candy'],
+        'Gym': ['gym', 'fitness', 'workout', 'exercise', 'membership'],
+        'Help': ['help', 'maid', 'cleaning', 'servant', 'domestic help'],
+        'Public Transport': ['bus', 'metro', 'train', 'auto', 'rickshaw', 'public transport', 'uber', 'ola', 'rapido'],
+        'Fuel': ['fuel', 'petrol', 'diesel', 'gas', 'cng'],
+        'Vehicle Maintenance': ['service', 'repair', 'maintenance', 'bike service', 'car service', 'oil change', 'tyre'],
+        'Tea/Coffee': ['tea', 'coffee', 'chai', 'cafe', 'starbucks', 'ccd'],
+        'Dinner': ['dinner', 'supper', 'night meal', 'restaurant dinner'],
+        'Lunch': ['lunch', 'afternoon meal', 'restaurant lunch'],
+        'Breakfast': ['breakfast', 'morning meal', 'brunch'],
+        'Clothing': ['clothes', 'clothing', 'shirt', 'pant', 'shoes', 'dress', 'fashion', 'wear'],
+        'Movies': ['movie', 'cinema', 'film', 'theatre', 'pvr', 'inox', 'netflix', 'prime', 'hotstar'],
+        'Sports': ['sport', 'sports', 'cricket', 'football', 'badminton', 'equipment'],
+        'Medicine': ['medicine', 'medical', 'pharmacy', 'drug', 'tablet', 'doctor', 'hospital', 'health'],
+        'Eggs': ['egg', 'eggs', 'dozen eggs'],
+        'HouseHold Things': ['household', 'home', 'utensil', 'bucket', 'furniture', 'appliance'],
+        'Split': ['split', 'shared', 'divided'],
+        'Cash ATM': ['atm', 'cash', 'withdraw', 'withdrawal'],
+        'Invest': ['invest', 'investment', 'stock', 'mutual fund', 'sip', 'savings']
+      };
+
+      // Check each category pattern
+      for (const [category, keywords] of Object.entries(categoryPatterns)) {
+        for (const keyword of keywords) {
+          if (desc.includes(keyword)) {
+            return category;
+          }
+        }
+      }
+
+      // Default to current category if no match
+      return form.category;
+    };
+
+    // Handle description change with auto-detection
+    const handleDescriptionChange = (description) => {
+      const detectedCategory = detectCategory(description);
+      setForm(prev => ({
+        ...prev,
+        desc: description,
+        category: detectedCategory
+      }));
+    };
+
     const handleSubmit = async () => {
       if (!form.desc || !form.amount) return;
       try {
@@ -626,7 +682,13 @@ export default function App() {
                       {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
-                <input type="text" placeholder="Description (e.g. Groceries)" value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-2" />
+                <input 
+                  type="text" 
+                  placeholder="Description (e.g. Groceries from DMart)" 
+                  value={form.desc} 
+                  onChange={e => handleDescriptionChange(e.target.value)} 
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-2" 
+                />
                 
                 {/* Amount with Income/Expense Toggle */}
                 <div className="flex gap-2 mb-2">
