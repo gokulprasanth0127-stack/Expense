@@ -175,8 +175,18 @@ export default function App() {
       }));
   }, [transactions]);
 
+  const friendBalancesData = useMemo(() => {
+    return Object.entries(summary.balances)
+      .map(([name, balance]) => ({
+        name,
+        owesYou: balance > 0 ? Math.round(balance) : 0,
+        youOwe: balance < 0 ? Math.round(Math.abs(balance)) : 0
+      }))
+      .filter(item => item.owesYou > 0 || item.youOwe > 0); // Only show non-zero balances
+  }, [summary.balances]);
+
   const topCategoriesData = useMemo(() => {
-    return categoryData.slice(0, 5);
+    return categoryData.slice(0, 6); // Top 6 categories
   }, [categoryData]);
 
   const chartColors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#3b82f6', '#ef4444', '#06b6d4', '#f97316', '#84cc16'];
@@ -234,25 +244,39 @@ export default function App() {
 
         <Card className="p-6">
           <div className="flex justify-between items-center mb-4">
-             <p className="text-slate-500 text-sm font-medium">Net Balances</p>
+             <p className="text-slate-500 text-sm font-medium">Friend Balances</p>
              <ArrowRightLeft size={20} className="text-slate-400" />
           </div>
           <div className="space-y-2 max-h-24 overflow-y-auto custom-scrollbar">
-            {Object.entries(summary.balances).map(([friend, amount]) => (
+            {Object.entries(summary.balances)
+              .filter(([_, amount]) => Math.abs(amount) >= 1)
+              .map(([friend, amount]) => (
               <div key={friend} className="flex justify-between items-center text-sm">
                 <span className="text-slate-600 font-medium">{friend}</span>
-                <span className={`font-bold ${amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {amount >= 0 ? '+' : ''}{Math.round(amount)}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`font-bold ${amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                    {amount >= 0 ? '+' : ''}{Math.round(amount)}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {amount >= 0 ? 'owes' : 'owed'}
+                  </span>
+                </div>
               </div>
             ))}
-            {Object.keys(summary.balances).length === 0 && <span className="text-slate-400 text-xs">Add friends to track balances</span>}
+            {Object.values(summary.balances).every(amt => Math.abs(amt) < 1) && (
+              <div className="text-center py-2">
+                <span className="text-slate-400 text-xs">All settled! 🎉</span>
+              </div>
+            )}
+            {Object.keys(summary.balances).length === 0 && (
+              <span className="text-slate-400 text-xs">Add friends to track balances</span>
+            )}
           </div>
         </Card>
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pie Chart - Spending by Category */}
         <Card className="p-6 h-96 flex flex-col">
           <h3 className="text-lg font-bold text-slate-800 mb-6">Spending by Category</h3>
@@ -331,8 +355,8 @@ export default function App() {
         {/* Bar Chart - Top Categories */}
         <Card className="p-6 h-96 flex flex-col">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Top 5 Categories</h3>
-            <Calendar size={20} className="text-emerald-600" />
+            <h3 className="text-lg font-bold text-slate-800">Top Categories</h3>
+            <Calendar size={20} className="text-violet-600" />
           </div>
           {topCategoriesData.length > 0 ? (
             <div className="flex-1 min-h-0">
@@ -345,15 +369,15 @@ export default function App() {
                     dataKey="name" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
-                    width={100}
+                    width={80}
                   />
                   <RechartsTooltip 
-                    formatter={(value) => [`₹${value}`, 'Total']}
+                    formatter={(value) => [`₹${value}`, 'Spent']}
                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
                   />
                   <Bar 
                     dataKey="value" 
-                    fill="#10b981"
+                    fill="#8b5cf6"
                     radius={[0, 8, 8, 0]}
                   />
                 </BarChart>
@@ -362,6 +386,54 @@ export default function App() {
           ) : (
             <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
               No category data yet
+            </div>
+          )}
+        </Card>
+
+        {/* Bar Chart - Friend Balances */}
+        <Card className="p-6 h-96 flex flex-col lg:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Friend Balances</h3>
+            <ArrowRightLeft size={20} className="text-emerald-600" />
+          </div>
+          {friendBalancesData.length > 0 ? (
+            <div className="flex-1 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={friendBalancesData} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{ fontSize: 12 }} stroke="#64748b" />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    tick={{ fontSize: 12 }}
+                    stroke="#64748b"
+                    width={100}
+                  />
+                  <RechartsTooltip 
+                    formatter={(value, name) => [
+                      `₹${value}`, 
+                      name === 'owesYou' ? 'Owes You' : 'You Owe'
+                    ]}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Bar 
+                    dataKey="owesYou" 
+                    fill="#10b981"
+                    radius={[0, 8, 8, 0]}
+                    name="Owes You"
+                  />
+                  <Bar 
+                    dataKey="youOwe" 
+                    fill="#ef4444"
+                    radius={[0, 8, 8, 0]}
+                    name="You Owe"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+              All settled up! No pending balances.
             </div>
           )}
         </Card>
