@@ -1388,7 +1388,9 @@ export default function App() {
     </div>
   );
 
-  const MonthlyStatements = () => (
+  const MonthlyStatements = () => {
+    console.log('MonthlyStatements rendering, statements count:', monthlyStatements.length);
+    return (
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card className="p-4 md:p-8">
          <div className="text-center mb-8">
@@ -1500,6 +1502,7 @@ export default function App() {
       </Card>
     </div>
   );
+  };
 
   // Show auth loading screen
   if (authLoading) {
