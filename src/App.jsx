@@ -303,14 +303,14 @@ export default function App() {
       const monthlySalary = salary.amount || 0;
       const startingBalance = runningBalance;
       
-      // Calculate ending balance: Start + Salary + Income - Expenses + (Expenses - MyShare)
-      // This represents total money paid out minus what you actually owe
-      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
+      // Calculate ending balance: Start + Salary + Income - Expenses (what I paid) + Money I owe friends (still have cash)
+      // This matches the Current Balance formula: previousBalance + salary + income - totalPaidOut + totalIOwe
+      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + month.iOweFriends;
       
-      // Savings = Current Balance = Ending Balance + Money I owe friends (still in hand)
-      const savings = endingBalance + month.iOweFriends;
+      // Savings = Current Balance (same as ending balance since iOweFriends is already included)
+      const savings = endingBalance;
       
-      // Update running balance for next month
+      // Update running balance for next month (carry forward the ending balance)
       runningBalance = endingBalance;
       
       return {
@@ -318,7 +318,7 @@ export default function App() {
         salary: monthlySalary,
         startingBalance: startingBalance,
         endingBalance: endingBalance,
-        savings: savings // Current balance - actual cash in hand
+        savings: savings // Current balance - matches dashboard calculation
       };
     });
     
