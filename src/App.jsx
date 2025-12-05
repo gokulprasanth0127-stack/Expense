@@ -305,7 +305,7 @@ export default function App() {
       
       // Calculate ending balance: Start + Salary + Income - Expenses (what I paid) + Money I owe friends (still have cash)
       // This matches the Current Balance formula: previousBalance + salary + income - totalPaidOut + totalIOwe
-      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + month.iOweFriends;
+      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses;
       
       // Savings = Current Balance (same as ending balance since iOweFriends is already included)
       const savings = endingBalance;
