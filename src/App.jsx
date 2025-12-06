@@ -414,18 +414,52 @@ export default function App() {
                     data={categoryData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
+                    innerRadius={45}
+                    outerRadius={80}
+                    paddingAngle={2}
                     dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
+                    label={({ name, percent, x, y, cx, cy }) => {
+                      // Only show label if percentage is > 3%
+                      if (percent < 0.03) return null;
+                      
+                      // Calculate position for label (outside the pie)
+                      const RADIAN = Math.PI / 180;
+                      const radius = 90;
+                      const midAngle = Math.atan2(y - cy, x - cx);
+                      const labelX = cx + radius * Math.cos(midAngle);
+                      const labelY = cy + radius * Math.sin(midAngle);
+                      
+                      return (
+                        <text 
+                          x={labelX} 
+                          y={labelY} 
+                          fill="#334155"
+                          textAnchor={labelX > cx ? 'start' : 'end'}
+                          dominantBaseline="central"
+                          className="text-xs font-semibold"
+                        >
+                          {`${name} ${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      );
+                    }}
+                    labelLine={{
+                      stroke: '#94a3b8',
+                      strokeWidth: 1
+                    }}
                   >
                     {categoryData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                     ))}
                   </Pie>
-                  <RechartsTooltip formatter={(value) => `₹${value}`} />
+                  <RechartsTooltip 
+                    formatter={(value) => [`₹${value}`, 'Amount']}
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: '1px solid #e2e8f0',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
