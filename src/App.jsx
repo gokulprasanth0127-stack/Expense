@@ -269,8 +269,7 @@ export default function App() {
           monthName: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           income: 0,
           expenses: 0,
-          myExpenseShare: 0,
-          iOweFriends: 0 // Track money I owe friends (cash I still have)
+          myExpenseShare: 0
         };
       }
       
@@ -286,10 +285,6 @@ export default function App() {
         if (t.splitAmong.includes('Me')) {
           monthlyData[monthKey].myExpenseShare += amountPerPerson;
         }
-        // Calculate how much I owe friends (someone else paid, I was in the split)
-        if (t.paidBy !== 'Me' && t.splitAmong.includes('Me')) {
-          monthlyData[monthKey].iOweFriends += amountPerPerson;
-        }
       }
     });
     
@@ -302,15 +297,9 @@ export default function App() {
     const statements = sortedMonths.map((month) => {
       const monthlySalary = salary.amount || 0;
       const startingBalance = runningBalance;
+      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
       
-      // Calculate ending balance: Start + Salary + Income - Expenses (what I paid) + Money I owe friends (still have cash)
-      // This matches the Current Balance formula: previousBalance + salary + income - totalPaidOut + totalIOwe
-      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses;
-      
-      // Savings = Current Balance (same as ending balance since iOweFriends is already included)
-      const savings = endingBalance;
-      
-      // Update running balance for next month (carry forward the ending balance)
+      // Update running balance for next month
       runningBalance = endingBalance;
       
       return {
@@ -318,7 +307,7 @@ export default function App() {
         salary: monthlySalary,
         startingBalance: startingBalance,
         endingBalance: endingBalance,
-        savings: savings // Current balance - matches dashboard calculation
+        savings: endingBalance // Savings = Current Balance (Ending Balance)
       };
     });
     
@@ -394,7 +383,7 @@ export default function App() {
                     {amount >= 0 ? '+' : ''}{Math.round(amount)}
                   </span>
                   <span className="text-xs text-slate-400">
-                    {amount >= 0 ? 'owes' : 'owed'}
+                    {amount >= 0 ? 'owes you' : 'you owe'}
                   </span>
                 </div>
               </div>
