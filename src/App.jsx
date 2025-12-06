@@ -513,17 +513,20 @@ export default function App() {
           </div>
         </Card>
 
-        <Card className="p-4 md:p-6">
+        <Card className="p-4 md:p-6 bg-gradient-to-br from-rose-500 to-red-600 text-white border-none shadow-lg shadow-rose-200">
            <div className="flex justify-between items-start">
             <div>
-              <p className="text-slate-500 text-xs md:text-sm font-medium mb-1">Total Expenses</p>
-              <h3 className="text-2xl md:text-3xl font-bold text-slate-800">₹{filteredSummary.totalSpentByMe.toFixed(2)}</h3>
+              <p className="text-rose-100 text-xs md:text-sm font-medium mb-1">Total Expenses</p>
+              <h3 className="text-2xl md:text-3xl font-bold">₹{filteredSummary.totalSpentByMe.toFixed(2)}</h3>
             </div>
-            <div className="p-2 bg-slate-100 rounded-lg">
-              <DollarSign size={20} className="text-slate-600 md:w-6 md:h-6" />
+            <div className="p-2 bg-white/20 rounded-lg">
+              <TrendingUp size={20} className="text-white md:w-6 md:h-6 rotate-180" />
             </div>
           </div>
-          <p className="mt-3 md:mt-4 text-xs text-slate-400">Your share of bills</p>
+          <div className="mt-3 md:mt-4 text-xs text-rose-100 flex items-center gap-1">
+            <DollarSign size={12} />
+            <span>Your share of bills</span>
+          </div>
         </Card>
       </div>
 
