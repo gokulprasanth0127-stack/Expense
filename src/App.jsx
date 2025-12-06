@@ -417,14 +417,17 @@ export default function App() {
       )}
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Pie Chart - Spending by Category */}
-        <Card className="p-4 md:p-6 h-72 md:h-96 flex flex-col">
-          <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6">Spending by Category</h3>
+        <Card className="p-6 flex flex-col" style={{ minHeight: '400px' }}>
+          <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center justify-between">
+            <span>Spending by Category</span>
+            <span className="text-sm font-normal text-slate-500">₹{categoryData.reduce((sum, cat) => sum + cat.value, 0).toFixed(0)} total</span>
+          </h3>
           {categoryData.length > 0 ? (
-            <div className="flex-1 min-h-0 flex items-center gap-4">
+            <div className="flex-1 flex gap-6">
               {/* Pie Chart on Left */}
-              <div className="flex-1">
+              <div className="flex-1" style={{ minHeight: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -432,7 +435,7 @@ export default function App() {
                       cx="50%"
                       cy="50%"
                       innerRadius={0}
-                      outerRadius={90}
+                      outerRadius="80%"
                       paddingAngle={2}
                       dataKey="value"
                       label={false}
@@ -447,7 +450,8 @@ export default function App() {
                         borderRadius: '8px', 
                         border: '1px solid #e2e8f0',
                         fontSize: '12px',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        backgroundColor: 'white'
                       }}
                     />
                   </PieChart>
@@ -455,19 +459,19 @@ export default function App() {
               </div>
               
               {/* Category List on Right */}
-              <div className="w-32 space-y-2 overflow-y-auto max-h-full custom-scrollbar pr-2">
+              <div className="w-40 space-y-2 overflow-y-auto max-h-80 custom-scrollbar pr-2">
                 {categoryData.map((item, index) => {
                   const total = categoryData.reduce((sum, cat) => sum + cat.value, 0);
-                  const percentage = ((item.value / total) * 100).toFixed(0);
+                  const percentage = ((item.value / total) * 100).toFixed(1);
                   return (
-                    <div key={item.name} className="flex items-center gap-2 text-xs">
+                    <div key={item.name} className="flex items-center gap-2">
                       <div 
                         className="w-3 h-3 rounded-sm flex-shrink-0" 
                         style={{ backgroundColor: chartColors[index % chartColors.length] }}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-slate-700 truncate">{item.name}</div>
-                        <div className="text-slate-500">{percentage}%</div>
+                        <div className="font-semibold text-slate-700 text-sm truncate">{item.name}</div>
+                        <div className="text-xs text-slate-500">₹{item.value} • {percentage}%</div>
                       </div>
                     </div>
                   );
@@ -475,67 +479,79 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-sm">
-              No expenses recorded yet
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+              <DollarSign size={48} className="mb-2 opacity-20" />
+              <p className="text-sm font-medium">No expenses recorded yet</p>
+              <p className="text-xs mt-1">Add transactions to see breakdown</p>
             </div>
           )}
         </Card>
 
         {/* Line Chart - Spending Trend */}
-        <Card className="p-4 md:p-6 h-72 md:h-96 flex flex-col">
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <h3 className="text-base md:text-lg font-bold text-slate-800">Spending Trend</h3>
-            <TrendingUp size={18} className="text-indigo-600 md:w-5 md:h-5" />
+        <Card className="p-6 flex flex-col" style={{ minHeight: '400px' }}>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Spending Trend</h3>
+            <TrendingUp size={20} className="text-indigo-600" />
           </div>
           {timelineData.length > 0 ? (
-            <div className="flex-1 min-h-0">
+            <div className="flex-1" style={{ minHeight: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={timelineData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     dataKey="date" 
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 11 }}
                     stroke="#64748b"
                     angle={-45}
                     textAnchor="end"
-                    height={60}
+                    height={70}
                   />
                   <YAxis 
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 11 }}
                     stroke="#64748b"
                   />
                   <RechartsTooltip 
                     formatter={(value) => [`₹${value}`, 'Spent']}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: '1px solid #e2e8f0', 
+                      fontSize: '12px',
+                      backgroundColor: 'white'
+                    }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="amount" 
                     stroke="#6366f1" 
-                    strokeWidth={2}
-                    dot={{ fill: '#6366f1', r: 3 }}
-                    activeDot={{ r: 5 }}
+                    strokeWidth={3}
+                    dot={{ fill: '#6366f1', r: 4 }}
+                    activeDot={{ r: 6 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-sm">
-              No timeline data yet
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+              <TrendingUp size={48} className="mb-2 opacity-20" />
+              <p className="text-sm font-medium">No timeline data yet</p>
+              <p className="text-xs mt-1">Add expenses to see trends</p>
             </div>
           )}
         </Card>
+      </div>
 
+      {/* Second Row of Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Bar Chart - Top Categories */}
-        <Card className="p-4 md:p-6 h-72 md:h-96 flex flex-col">
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <h3 className="text-base md:text-lg font-bold text-slate-800">Top Categories</h3>
-            <Calendar size={18} className="text-violet-600 md:w-5 md:h-5" />
+        <Card className="p-6 flex flex-col" style={{ minHeight: '400px' }}>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Top Categories</h3>
+            <Calendar size={20} className="text-violet-600" />
           </div>
           {topCategoriesData.length > 0 ? (
-            <div className="flex-1 min-h-0">
+            <div className="flex-1" style={{ minHeight: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topCategoriesData} layout="vertical" margin={{ left: 20, right: 10 }}>
+                <BarChart data={topCategoriesData} layout="vertical" margin={{ left: 80, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     type="number" 
@@ -547,11 +563,15 @@ export default function App() {
                     dataKey="name" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
-                    width={100}
+                    width={75}
                   />
                   <RechartsTooltip 
                     formatter={(value) => [`₹${value}`, 'Spent']}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'white'
+                    }}
                   />
                   <Bar 
                     dataKey="value" 
@@ -562,35 +582,36 @@ export default function App() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-              No category data yet
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+              <Calendar size={48} className="mb-2 opacity-20" />
+              <p className="text-sm font-medium">No category data yet</p>
+              <p className="text-xs mt-1">Start tracking expenses</p>
             </div>
           )}
         </Card>
 
         {/* Bar Chart - Friend Balances */}
-        <Card className="p-6 h-96 flex flex-col lg:col-span-2">
+        <Card className="p-6 flex flex-col" style={{ minHeight: '400px' }}>
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-slate-800">Friend Balances</h3>
             <ArrowRightLeft size={20} className="text-emerald-600" />
           </div>
           {friendBalancesData.length > 0 ? (
-            <div className="flex-1 min-h-0">
+            <div className="flex-1" style={{ minHeight: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={friendBalancesData} layout="vertical" margin={{ left: 10, right: 10 }}>
+                <BarChart data={friendBalancesData} layout="vertical" margin={{ left: 60, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     type="number" 
                     tick={{ fontSize: 12 }} 
                     stroke="#64748b"
-                    label={{ value: 'Amount (₹)', position: 'insideBottom', offset: -5, fontSize: 12 }}
                   />
                   <YAxis 
                     type="category" 
                     dataKey="name" 
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
-                    width={80}
+                    width={55}
                   />
                   <RechartsTooltip 
                     formatter={(value, name) => {
@@ -600,7 +621,11 @@ export default function App() {
                         name === 'youOwe' ? 'You Owe' : 'Owes You'
                       ];
                     }}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'white'
+                    }}
                   />
                   <Bar 
                     dataKey="youOwe" 
@@ -618,47 +643,68 @@ export default function App() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-              All settled up! No pending balances.
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+              <CheckCircle size={48} className="mb-2 opacity-20 text-green-400" />
+              <p className="text-sm font-medium">All settled up!</p>
+              <p className="text-xs mt-1">No pending balances</p>
             </div>
           )}
         </Card>
+      </div>
 
-        <Card className="p-6 h-96 flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Recent Activity</h3>
-          <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-            {[...transactions].reverse().slice(0, 10).map(t => (
-              <div key={t.id} className="group flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 transition-all">
+      {/* Recent Activity Section */}
+      <Card className="p-6">
+        <h3 className="text-lg font-bold text-slate-800 mb-6">Recent Activity</h3>
+        <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-2">
+          {[...transactions].reverse().slice(0, 15).map(t => {
+            const isIncome = t.amount > 0;
+            return (
+              <div key={t.id} className="group flex items-center justify-between p-4 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-200 transition-all">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm">
+                  <div 
+                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
+                      isIncome ? 'bg-green-100 text-green-700' : 'bg-indigo-50 text-indigo-600'
+                    }`}
+                  >
                     {t.category.substring(0,2).toUpperCase()}
                   </div>
                   <div>
                     <p className="font-semibold text-slate-800">{t.desc}</p>
-                    <p className="text-xs text-slate-500 flex gap-2">
-                       <span>{t.date}</span>
-                       <span>•</span>
-                       <span>{t.paidBy === 'Me' ? 'You paid' : `${t.paidBy} paid`}</span>
+                    <p className="text-xs text-slate-500 flex items-center gap-2">
+                      <span>{t.date}</span>
+                      <span>•</span>
+                      <span>{t.paidBy === 'Me' ? 'You paid' : `${t.paidBy} paid`}</span>
+                      {t.splitAmong.length > 1 && (
+                        <>
+                          <span>•</span>
+                          <span>Split with {t.splitAmong.filter(p => p !== t.paidBy).join(', ')}</span>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="block font-bold text-slate-800">₹{t.amount}</span>
-                  <span className="text-xs text-slate-400">
-                    {t.splitAmong.includes('Me') ? `My Share: ₹${(t.amount/t.splitAmong.length).toFixed(0)}` : 'Not involved'}
+                  <span className={`block text-lg font-bold ${isIncome ? 'text-green-600' : 'text-slate-800'}`}>
+                    {isIncome ? '+' : ''}₹{Math.abs(t.amount)}
                   </span>
+                  {t.splitAmong.includes('Me') && t.splitAmong.length > 1 && (
+                    <span className="text-xs text-slate-400">
+                      My Share: ₹{(Math.abs(t.amount)/t.splitAmong.length).toFixed(0)}
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
-            {transactions.length === 0 && (
-               <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                  <Table size={48} className="mb-2 opacity-20" />
-                  <p>No transactions found</p>
-               </div>
-            )}
-          </div>
-        </Card>
-      </div>
+            );
+          })}
+          {transactions.length === 0 && (
+            <div className="py-16 flex flex-col items-center justify-center text-slate-400">
+              <Table size={64} className="mb-4 opacity-20" />
+              <p className="text-lg font-medium">No transactions found</p>
+              <p className="text-sm mt-2">Start adding expenses to track your spending</p>
+            </div>
+          )}
+        </div>
+      </Card>
     </div>
   );
 
