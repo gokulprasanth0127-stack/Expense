@@ -185,20 +185,21 @@ export default function App() {
       if (isIncome) return;
 
       // Settlement Logic
-      t.splitAmong.forEach(person => {
-        if (person === t.paidBy) return; 
-
-        // I paid, person owes me (this reduces my current balance since I paid out cash)
-        if (t.paidBy === 'Me' && person !== 'Me') {
-          balances[person] = (balances[person] || 0) + amountPerPerson;
-          totalOwedToMe += amountPerPerson;
+      if (t.paidBy === 'Me') {
+        // I paid - everyone in split (except me) owes me
+        t.splitAmong.forEach(person => {
+          if (person !== 'Me') {
+            balances[person] = (balances[person] || 0) + amountPerPerson;
+            totalOwedToMe += amountPerPerson;
+          }
+        });
+      } else {
+        // Friend paid - if I'm in the split, I owe them
+        if (t.splitAmong.includes('Me')) {
+          balances[t.paidBy] = (balances[t.paidBy] || 0) - amountPerPerson;
+          totalIOwe += amountPerPerson;
         }
-        // Person paid, I owe person (I still have this cash in hand)
-        else if (person === t.paidBy && t.splitAmong.includes('Me')) {
-           balances[person] = (balances[person] || 0) - amountPerPerson;
-           totalIOwe += amountPerPerson;
-        }
-      });
+      }
     });
 
     // Calculate balance: Previous month balance + Salary + Income - Money I spent - Money friends owe me (already paid out)
