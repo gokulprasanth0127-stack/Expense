@@ -202,10 +202,10 @@ export default function App() {
       }
     });
 
-    // Calculate balance: Previous month balance + Salary + Income - Money I spent - Money friends owe me (already paid out)
-    // But add back money I owe to friends (I still have that cash)
+    // Calculate balance: Previous month balance + Salary + Income - Money I actually paid out
+    // Settlement amounts are NOT included until marked as settled
     const previousBalance = salary.previousBalance || 0;
-    const netBalance = previousBalance + salary.amount + totalIncome - totalPaidOut + totalIOwe;
+    const netBalance = previousBalance + salary.amount + totalIncome - totalPaidOut;
 
     return { totalSpentByMe, totalPaidOut, totalIncome, balances, netBalance, totalOwedToMe, totalIOwe, previousBalance };
   }, [transactions, friends, salary]);
@@ -298,7 +298,8 @@ export default function App() {
     const statements = sortedMonths.map((month) => {
       const monthlySalary = salary.amount || 0;
       const startingBalance = runningBalance;
-      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses + (month.expenses - month.myExpenseShare);
+      // Balance = Starting + Salary + Income - Money I paid out
+      const endingBalance = startingBalance + monthlySalary + month.income - month.expenses;
       
       // Update running balance for next month
       runningBalance = endingBalance;
@@ -308,7 +309,7 @@ export default function App() {
         salary: monthlySalary,
         startingBalance: startingBalance,
         endingBalance: endingBalance,
-        savings: endingBalance // Savings = Current Balance (Ending Balance)
+        savings: endingBalance // Savings = Ending Balance
       };
     });
     
@@ -335,7 +336,7 @@ export default function App() {
           </div>
           <div className="mt-3 md:mt-4 text-xs text-emerald-100 flex items-center gap-1">
             <CheckCircle size={12} />
-            <span>Salary - Expenses</span>
+            <span>Salary + Income - Paid Out</span>
           </div>
         </Card>
 
@@ -355,6 +356,22 @@ export default function App() {
           </div>
         </Card>
 
+        <Card className="p-4 md:p-6 bg-gradient-to-br from-amber-500 to-orange-600 text-white border-none shadow-lg shadow-amber-200">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-amber-100 text-xs md:text-sm font-medium mb-1">Total Income</p>
+              <h3 className="text-2xl md:text-3xl font-bold">₹{summary.totalIncome.toFixed(2)}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg">
+              <TrendingUp size={20} className="text-white md:w-6 md:h-6" />
+            </div>
+          </div>
+          <div className="mt-3 md:mt-4 text-xs text-amber-100 flex items-center gap-1">
+            <CheckCircle size={12} />
+            <span>Additional earnings</span>
+          </div>
+        </Card>
+
         <Card className="p-4 md:p-6">
            <div className="flex justify-between items-start">
             <div>
@@ -367,39 +384,37 @@ export default function App() {
           </div>
           <p className="mt-3 md:mt-4 text-xs text-slate-400">Your share of bills</p>
         </Card>
+      </div>
 
-        <Card className="p-4 md:p-6">
-          <div className="flex justify-between items-center mb-4">
-             <p className="text-slate-500 text-xs md:text-sm font-medium">Friend Balances</p>
-             <ArrowRightLeft size={18} className="text-slate-400 md:w-5 md:h-5" />
-          </div>
-          <div className="space-y-2 max-h-20 md:max-h-24 overflow-y-auto custom-scrollbar">
-            {Object.entries(summary.balances)
-              .filter(([_, amount]) => Math.abs(amount) >= 1)
-              .map(([friend, amount]) => (
-              <div key={friend} className="flex justify-between items-center text-sm">
-                <span className="text-slate-600 font-medium truncate mr-2">{friend}</span>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <span className={`font-bold ${amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {amount >= 0 ? '+' : ''}{Math.round(amount)}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {amount >= 0 ? 'owes you' : 'you owe'}
-                  </span>
-                </div>
+      {/* Pending Settlements Banner */}
+      {(summary.totalOwedToMe > 0 || summary.totalIOwe > 0) && (
+        <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-indigo-200">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                <ArrowRightLeft size={20} className="text-indigo-600" />
               </div>
-            ))}
-            {Object.values(summary.balances).every(amt => Math.abs(amt) < 1) && (
-              <div className="text-center py-2">
-                <span className="text-slate-400 text-xs">All settled! 🎉</span>
+              <div>
+                <h4 className="font-semibold text-slate-800">Pending Settlements</h4>
+                <p className="text-sm text-slate-600">
+                  {summary.totalOwedToMe > 0 && `₹${summary.totalOwedToMe.toFixed(2)} owed to you`}
+                  {summary.totalOwedToMe > 0 && summary.totalIOwe > 0 && ' • '}
+                  {summary.totalIOwe > 0 && `₹${summary.totalIOwe.toFixed(2)} you owe`}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  💡 These amounts are not in your balance yet. Click "Settle Up" after money is exchanged.
+                </p>
               </div>
-            )}
-            {Object.keys(summary.balances).length === 0 && (
-              <span className="text-slate-400 text-xs">Add friends to track balances</span>
-            )}
+            </div>
+            <button 
+              onClick={() => setActiveTab('settlement')}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex-shrink-0"
+            >
+              Settle Up
+            </button>
           </div>
         </Card>
-      </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
@@ -407,61 +422,57 @@ export default function App() {
         <Card className="p-4 md:p-6 h-72 md:h-96 flex flex-col">
           <h3 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6">Spending by Category</h3>
           {categoryData.length > 0 ? (
-            <div className="flex-1 min-h-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, percent, x, y, cx, cy }) => {
-                      // Only show label if percentage is > 3%
-                      if (percent < 0.03) return null;
-                      
-                      // Calculate position for label (outside the pie)
-                      const RADIAN = Math.PI / 180;
-                      const radius = 90;
-                      const midAngle = Math.atan2(y - cy, x - cx);
-                      const labelX = cx + radius * Math.cos(midAngle);
-                      const labelY = cy + radius * Math.sin(midAngle);
-                      
-                      return (
-                        <text 
-                          x={labelX} 
-                          y={labelY} 
-                          fill="#334155"
-                          textAnchor={labelX > cx ? 'start' : 'end'}
-                          dominantBaseline="central"
-                          className="text-xs font-semibold"
-                        >
-                          {`${name} ${(percent * 100).toFixed(0)}%`}
-                        </text>
-                      );
-                    }}
-                    labelLine={{
-                      stroke: '#94a3b8',
-                      strokeWidth: 1
-                    }}
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip 
-                    formatter={(value) => [`₹${value}`, 'Amount']}
-                    contentStyle={{ 
-                      borderRadius: '8px', 
-                      border: '1px solid #e2e8f0',
-                      fontSize: '12px',
-                      fontWeight: 'bold'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="flex-1 min-h-0 flex items-center gap-4">
+              {/* Pie Chart on Left */}
+              <div className="flex-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={0}
+                      outerRadius={90}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={false}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip 
+                      formatter={(value) => [`₹${value}`, 'Amount']}
+                      contentStyle={{ 
+                        borderRadius: '8px', 
+                        border: '1px solid #e2e8f0',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* Category List on Right */}
+              <div className="w-32 space-y-2 overflow-y-auto max-h-full custom-scrollbar pr-2">
+                {categoryData.map((item, index) => {
+                  const total = categoryData.reduce((sum, cat) => sum + cat.value, 0);
+                  const percentage = ((item.value / total) * 100).toFixed(0);
+                  return (
+                    <div key={item.name} className="flex items-center gap-2 text-xs">
+                      <div 
+                        className="w-3 h-3 rounded-sm flex-shrink-0" 
+                        style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-700 truncate">{item.name}</div>
+                        <div className="text-slate-500">{percentage}%</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-sm">
@@ -1379,23 +1390,54 @@ export default function App() {
     );
   };
 
-  const SettlementView = () => (
-    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Card className="p-8">
-         <div className="text-center mb-10">
+  const SettlementView = () => {
+    const handleMarkSettled = async (friendName, amount) => {
+      const isOwed = amount >= 0;
+      const absAmount = Math.abs(amount);
+      
+      if (!confirm(`Mark ₹${absAmount.toFixed(2)} ${isOwed ? 'received from' : 'paid to'} ${friendName} as settled?`)) {
+        return;
+      }
+
+      try {
+        // Create a settlement transaction
+        const settlementTransaction = {
+          date: new Date().toISOString().split('T')[0],
+          desc: `Settlement with ${friendName}`,
+          amount: isOwed ? absAmount : -absAmount, // Positive if they paid you, negative if you paid them
+          category: 'Settle',
+          paidBy: isOwed ? friendName : 'Me',
+          splitAmong: ['Me'],
+          splitType: 'equal'
+        };
+
+        const newTrans = await transactionsAPI.create(settlementTransaction);
+        setTransactions([...transactions, newTrans]);
+        
+        alert(`✅ Settlement recorded!\n₹${absAmount.toFixed(2)} ${isOwed ? 'received from' : 'paid to'} ${friendName}`);
+      } catch (error) {
+        console.error('Failed to record settlement:', error);
+        alert('Failed to record settlement. Please try again.');
+      }
+    };
+
+    return (
+      <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <Card className="p-8">
+          <div className="text-center mb-10">
             <h2 className="text-2xl font-bold text-slate-800 mb-2">Final Settlements</h2>
-            <p className="text-slate-500">The net amount everyone owes or is owed.</p>
-         </div>
+            <p className="text-slate-500">Click "Mark Settled" after receiving/paying money to update your balance</p>
+          </div>
 
-         <div className="grid gap-4">
-           {Object.entries(summary.balances).map(([person, amount]) => {
-             const isOwed = amount >= 0;
-             const val = Math.abs(amount);
-             if (val < 1) return null; // Skip settled
+          <div className="grid gap-4">
+            {Object.entries(summary.balances).map(([person, amount]) => {
+              const isOwed = amount >= 0;
+              const val = Math.abs(amount);
+              if (val < 1) return null; // Skip settled
 
-             return (
-               <div key={person} className="flex items-center justify-between p-5 bg-white border border-slate-100 shadow-sm rounded-xl">
-                 <div className="flex items-center gap-4">
+              return (
+                <div key={person} className="flex items-center justify-between p-5 bg-white border border-slate-100 shadow-sm rounded-xl">
+                  <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${isOwed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {person.charAt(0)}
                     </div>
@@ -1405,29 +1447,35 @@ export default function App() {
                         {isOwed ? 'Owes you' : 'You owe'}
                       </p>
                     </div>
-                 </div>
-                 <div className="text-right">
+                  </div>
+                  <div className="text-right">
                     <span className={`block text-2xl font-bold ${isOwed ? 'text-green-600' : 'text-red-500'}`}>
                       ₹{val.toFixed(2)}
                     </span>
-                    <button className="text-xs text-indigo-600 hover:underline mt-1 font-medium">Mark Settled</button>
-                 </div>
-               </div>
-             );
-           })}
-           {Object.values(summary.balances).every(v => Math.abs(v) < 1) && (
-             <div className="text-center py-10">
-               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                 <CheckCircle size={32} />
-               </div>
-               <h3 className="text-lg font-bold text-slate-800">All Settled Up!</h3>
-               <p className="text-slate-500">No debts found between you and your friends.</p>
-             </div>
-           )}
-         </div>
-      </Card>
-    </div>
-  );
+                    <button 
+                      onClick={() => handleMarkSettled(person, amount)}
+                      className="text-xs text-indigo-600 hover:underline mt-1 font-medium"
+                    >
+                      Mark Settled
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {Object.values(summary.balances).every(v => Math.abs(v) < 1) && (
+              <div className="text-center py-10">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">All Settled Up!</h3>
+                <p className="text-slate-500">No debts found between you and your friends.</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    );
+  };
 
   const MonthlyStatements = () => {
     console.log('MonthlyStatements rendering, statements count:', monthlyStatements.length);
