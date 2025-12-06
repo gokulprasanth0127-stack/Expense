@@ -18,7 +18,9 @@ import {
   Calendar,
   Edit,
   LogOut,
-  User
+  User,
+  Filter,
+  X
 } from 'lucide-react';
 import { transactionsAPI, friendsAPI, salaryAPI } from './utils/api';
 import { useAuth } from './contexts/AuthContext';
@@ -320,15 +322,154 @@ export default function App() {
 
   // --- Views ---
 
-  const Dashboard = () => (
+  const Dashboard = () => {
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [selectedFriend, setSelectedFriend] = useState(null);
+
+    // Filter transactions based on selected category and friend
+    const filteredTransactions = useMemo(() => {
+      return transactions.filter(t => {
+        const categoryMatch = !selectedCategory || t.category === selectedCategory;
+        const friendMatch = !selectedFriend || t.paidBy === selectedFriend || t.splitAmong.includes(selectedFriend);
+        return categoryMatch && friendMatch;
+      });
+    }, [transactions, selectedCategory, selectedFriend]);
+
+    // Recalculate summary with filtered transactions
+    const filteredSummary = useMemo(() => {
+      let totalSpentByMe = 0; 
+      let totalPaidOut = 0;
+      let totalIncome = 0;
+      const balances = {};
+      friends.forEach(f => balances[f] = 0);
+
+      filteredTransactions.forEach(t => {
+        const splitCount = t.splitAmong.length;
+        const isIncome = t.amount > 0;
+        const amountPerPerson = Math.abs(t.amount) / splitCount;
+
+        if (isIncome) {
+          if (t.splitAmong.includes('Me')) totalIncome += amountPerPerson;
+        } else {
+          if (t.paidBy === 'Me') totalPaidOut += Math.abs(t.amount);
+          if (t.splitAmong.includes('Me')) totalSpentByMe += amountPerPerson;
+        }
+
+        if (isIncome) return;
+
+        if (t.paidBy === 'Me') {
+          t.splitAmong.forEach(person => {
+            if (person !== 'Me') {
+              balances[person] = (balances[person] || 0) + amountPerPerson;
+            }
+          });
+        } else {
+          if (t.splitAmong.includes('Me')) {
+            balances[t.paidBy] = (balances[t.paidBy] || 0) - amountPerPerson;
+          }
+        }
+      });
+
+      const netBalance = (salary.previousBalance || 0) + salary.amount + totalIncome - totalPaidOut;
+      return { totalSpentByMe, totalPaidOut, totalIncome, balances, netBalance };
+    }, [filteredTransactions, friends, salary]);
+
+    // Recalculate category data with filtered transactions
+    const filteredCategoryData = useMemo(() => {
+      const data = {};
+      filteredTransactions.forEach(t => {
+        if (t.splitAmong.includes('Me') && t.amount < 0) {
+          const myShare = Math.abs(t.amount) / t.splitAmong.length;
+          data[t.category] = (data[t.category] || 0) + myShare;
+        }
+      });
+      return Object.keys(data).map(key => ({ name: key, value: Math.round(data[key]) }))
+        .sort((a, b) => b.value - a.value)
+        .filter(item => item.value > 0);
+    }, [filteredTransactions]);
+
+    // Recalculate timeline with filtered transactions
+    const filteredTimelineData = useMemo(() => {
+      const data = {};
+      filteredTransactions.forEach(t => {
+        if (t.splitAmong.includes('Me') && t.amount < 0) {
+          const myShare = Math.abs(t.amount) / t.splitAmong.length;
+          data[t.date] = (data[t.date] || 0) + myShare;
+        }
+      });
+      return Object.keys(data)
+        .sort()
+        .slice(-30)
+        .map(date => ({
+          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          amount: Math.round(data[date])
+        }));
+    }, [filteredTransactions]);
+
+    // Recalculate friend balances with filtered transactions
+    const filteredFriendBalancesData = useMemo(() => {
+      return Object.entries(filteredSummary.balances)
+        .map(([name, balance]) => ({
+          name,
+          owesYou: balance > 0 ? Math.round(balance) : 0,
+          youOwe: balance < 0 ? Math.round(Math.abs(balance)) : 0
+        }))
+        .filter(item => item.owesYou > 0 || item.youOwe > 0);
+    }, [filteredSummary.balances]);
+
+    const filteredTopCategoriesData = useMemo(() => {
+      return filteredCategoryData.slice(0, 6);
+    }, [filteredCategoryData]);
+
+    const clearFilters = () => {
+      setSelectedCategory(null);
+      setSelectedFriend(null);
+    };
+
+    return (
     <div className="space-y-4 md:space-y-6 animate-in fade-in duration-500">
+      {/* Active Filters Banner */}
+      {(selectedCategory || selectedFriend) && (
+        <Card className="p-4 bg-gradient-to-r from-violet-50 to-purple-50 border-violet-200">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                <Filter size={20} className="text-violet-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-slate-800">Active Filters</h4>
+                <div className="flex items-center gap-2 mt-1">
+                  {selectedCategory && (
+                    <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
+                      {selectedCategory}
+                    </span>
+                  )}
+                  {selectedFriend && (
+                    <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
+                      {selectedFriend}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <button 
+              onClick={clearFilters}
+              className="px-4 py-2 bg-white text-violet-600 border border-violet-200 rounded-lg text-sm font-medium hover:bg-violet-50 transition-colors flex items-center gap-2"
+            >
+              <X size={16} />
+              Clear Filters
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card className="p-4 md:p-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-none shadow-lg shadow-emerald-200">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-emerald-100 text-xs md:text-sm font-medium mb-1">Current Balance</p>
-              <h3 className="text-2xl md:text-3xl font-bold">₹{summary.netBalance.toFixed(2)}</h3>
+              <h3 className="text-2xl md:text-3xl font-bold">₹{filteredSummary.netBalance.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg">
               <Wallet size={20} className="text-white md:w-6 md:h-6" />
@@ -360,7 +501,7 @@ export default function App() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-amber-100 text-xs md:text-sm font-medium mb-1">Total Income</p>
-              <h3 className="text-2xl md:text-3xl font-bold">₹{summary.totalIncome.toFixed(2)}</h3>
+              <h3 className="text-2xl md:text-3xl font-bold">₹{filteredSummary.totalIncome.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-white/20 rounded-lg">
               <TrendingUp size={20} className="text-white md:w-6 md:h-6" />
@@ -376,7 +517,7 @@ export default function App() {
            <div className="flex justify-between items-start">
             <div>
               <p className="text-slate-500 text-xs md:text-sm font-medium mb-1">Total Expenses</p>
-              <h3 className="text-2xl md:text-3xl font-bold text-slate-800">₹{summary.totalSpentByMe.toFixed(2)}</h3>
+              <h3 className="text-2xl md:text-3xl font-bold text-slate-800">₹{filteredSummary.totalSpentByMe.toFixed(2)}</h3>
             </div>
             <div className="p-2 bg-slate-100 rounded-lg">
               <DollarSign size={20} className="text-slate-600 md:w-6 md:h-6" />
@@ -422,16 +563,16 @@ export default function App() {
         <Card className="p-6 flex flex-col" style={{ minHeight: '400px' }}>
           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center justify-between">
             <span>Spending by Category</span>
-            <span className="text-sm font-normal text-slate-500">₹{categoryData.reduce((sum, cat) => sum + cat.value, 0).toFixed(0)} total</span>
+            <span className="text-sm font-normal text-slate-500">₹{filteredCategoryData.reduce((sum, cat) => sum + cat.value, 0).toFixed(0)} total</span>
           </h3>
-          {categoryData.length > 0 ? (
+          {filteredCategoryData.length > 0 ? (
             <div className="flex-1 flex gap-6">
               {/* Pie Chart on Left */}
               <div className="flex-1" style={{ minHeight: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={categoryData}
+                      data={filteredCategoryData}
                       cx="50%"
                       cy="50%"
                       innerRadius={0}
@@ -439,9 +580,23 @@ export default function App() {
                       paddingAngle={2}
                       dataKey="value"
                       label={false}
+                      onClick={(data) => {
+                        if (selectedCategory === data.name) {
+                          setSelectedCategory(null); // Deselect if clicking same category
+                        } else {
+                          setSelectedCategory(data.name);
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
                     >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                      {filteredCategoryData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={chartColors[index % chartColors.length]}
+                          opacity={selectedCategory && selectedCategory !== entry.name ? 0.3 : 1}
+                          stroke={selectedCategory === entry.name ? '#1e293b' : 'none'}
+                          strokeWidth={selectedCategory === entry.name ? 3 : 0}
+                        />
                       ))}
                     </Pie>
                     <RechartsTooltip 
@@ -460,18 +615,29 @@ export default function App() {
               
               {/* Category List on Right */}
               <div className="w-40 space-y-2 overflow-y-auto max-h-80 custom-scrollbar pr-2">
-                {categoryData.map((item, index) => {
-                  const total = categoryData.reduce((sum, cat) => sum + cat.value, 0);
+                {filteredCategoryData.map((item, index) => {
+                  const total = filteredCategoryData.reduce((sum, cat) => sum + cat.value, 0);
                   const percentage = ((item.value / total) * 100).toFixed(1);
+                  const isSelected = selectedCategory === item.name;
                   return (
-                    <div key={item.name} className="flex items-center gap-2">
+                    <div 
+                      key={item.name} 
+                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                        isSelected ? 'bg-violet-50 ring-2 ring-violet-300' : 'hover:bg-slate-50'
+                      }`}
+                      onClick={() => setSelectedCategory(isSelected ? null : item.name)}
+                    >
                       <div 
                         className="w-3 h-3 rounded-sm flex-shrink-0" 
                         style={{ backgroundColor: chartColors[index % chartColors.length] }}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-slate-700 text-sm truncate">{item.name}</div>
-                        <div className="text-xs text-slate-500">₹{item.value} • {percentage}%</div>
+                        <div className={`font-semibold text-sm truncate ${isSelected ? 'text-violet-700' : 'text-slate-700'}`}>
+                          {item.name}
+                        </div>
+                        <div className={`text-xs ${isSelected ? 'text-violet-600' : 'text-slate-500'}`}>
+                          ₹{item.value} • {percentage}%
+                        </div>
                       </div>
                     </div>
                   );
@@ -493,10 +659,10 @@ export default function App() {
             <h3 className="text-lg font-bold text-slate-800">Spending Trend</h3>
             <TrendingUp size={20} className="text-indigo-600" />
           </div>
-          {timelineData.length > 0 ? (
+          {filteredTimelineData.length > 0 ? (
             <div className="flex-1" style={{ minHeight: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={timelineData}>
+                <LineChart data={filteredTimelineData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     dataKey="date" 
@@ -548,10 +714,10 @@ export default function App() {
             <h3 className="text-lg font-bold text-slate-800">Top Categories</h3>
             <Calendar size={20} className="text-violet-600" />
           </div>
-          {topCategoriesData.length > 0 ? (
+          {filteredTopCategoriesData.length > 0 ? (
             <div className="flex-1" style={{ minHeight: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topCategoriesData} layout="vertical" margin={{ left: 80, right: 20 }}>
+                <BarChart data={filteredTopCategoriesData} layout="vertical" margin={{ left: 80, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     type="number" 
@@ -577,6 +743,14 @@ export default function App() {
                     dataKey="value" 
                     fill="#6366f1"
                     radius={[0, 8, 8, 0]}
+                    onClick={(data) => {
+                      if (selectedCategory === data.name) {
+                        setSelectedCategory(null);
+                      } else {
+                        setSelectedCategory(data.name);
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -596,10 +770,10 @@ export default function App() {
             <h3 className="text-lg font-bold text-slate-800">Friend Balances</h3>
             <ArrowRightLeft size={20} className="text-emerald-600" />
           </div>
-          {friendBalancesData.length > 0 ? (
+          {filteredFriendBalancesData.length > 0 ? (
             <div className="flex-1" style={{ minHeight: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={friendBalancesData} layout="vertical" margin={{ left: 60, right: 20 }}>
+                <BarChart data={filteredFriendBalancesData} layout="vertical" margin={{ left: 60, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis 
                     type="number" 
@@ -612,6 +786,14 @@ export default function App() {
                     tick={{ fontSize: 12 }}
                     stroke="#64748b"
                     width={55}
+                    onClick={(data) => {
+                      if (selectedFriend === data.value) {
+                        setSelectedFriend(null);
+                      } else {
+                        setSelectedFriend(data.value);
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
                   />
                   <RechartsTooltip 
                     formatter={(value, name) => {
@@ -632,12 +814,28 @@ export default function App() {
                     fill="#ef4444"
                     radius={[8, 0, 0, 8]}
                     name="You Owe"
+                    onClick={(data) => {
+                      if (selectedFriend === data.name) {
+                        setSelectedFriend(null);
+                      } else {
+                        setSelectedFriend(data.name);
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
                   />
                   <Bar 
                     dataKey="owesYou" 
                     fill="#10b981"
                     radius={[0, 8, 8, 0]}
                     name="Owes You"
+                    onClick={(data) => {
+                      if (selectedFriend === data.name) {
+                        setSelectedFriend(null);
+                      } else {
+                        setSelectedFriend(data.name);
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -656,7 +854,7 @@ export default function App() {
       <Card className="p-6">
         <h3 className="text-lg font-bold text-slate-800 mb-6">Recent Activity</h3>
         <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-2">
-          {[...transactions].reverse().slice(0, 15).map(t => {
+          {[...filteredTransactions].reverse().slice(0, 15).map(t => {
             const isIncome = t.amount > 0;
             return (
               <div key={t.id} className="group flex items-center justify-between p-4 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-200 transition-all">
@@ -696,17 +894,18 @@ export default function App() {
               </div>
             );
           })}
-          {transactions.length === 0 && (
+          {filteredTransactions.length === 0 && (
             <div className="py-16 flex flex-col items-center justify-center text-slate-400">
               <Table size={64} className="mb-4 opacity-20" />
               <p className="text-lg font-medium">No transactions found</p>
-              <p className="text-sm mt-2">Start adding expenses to track your spending</p>
+              <p className="text-sm mt-2">{selectedCategory || selectedFriend ? 'Try different filters' : 'Start adding expenses to track your spending'}</p>
             </div>
           )}
         </div>
       </Card>
     </div>
   );
+};
 
   const TransactionManager = () => {
     const [form, setForm] = useState({
